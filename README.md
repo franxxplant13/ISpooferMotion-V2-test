@@ -203,4 +203,4 @@ See [`LICENSE`](LICENSE) for the full license text.
 
 ## Fork installation and updates
 
-See [installation, migration, and signed update setup](docs/FORK-UPDATES.md).
+See [installation, manual updates, and data backups](docs/FORK-UPDATES.md).

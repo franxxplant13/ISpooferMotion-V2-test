@@ -49,7 +49,7 @@
   },
   "bundle": {
     "active": true,
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "resources": ["../dist-plugin/ISpooferMotion.rbxmx"],
     "windows": {
       "nsis": {
@@ -70,12 +70,6 @@
       "desktop": {
         "schemes": ["ispoofermotion"]
       }
-    },
-    "updater": {
-      "endpoints": [
-        "https://github.com/franxxplant13/ISpooferMotion-V2-test/releases/latest/download/latest.json"
-      ],
-      "pubkey": ""
     }
   }
 }

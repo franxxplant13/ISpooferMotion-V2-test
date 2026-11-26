@@ -44,12 +44,12 @@ export default function Sidebar({
         <img
           src="/ism_logo_theme_swap.svg"
           className="w-7 h-7 object-contain select-none shrink-0"
-          alt="ISpooferMotion"
+          alt="IspooferMotion pm"
           draggable={false}
         />
         <div className="flex flex-col leading-tight min-w-0">
           <span className="text-[12px] font-semibold tracking-tight text-foreground truncate">
-            ISpooferMotion
+            IspooferMotion pm
           </span>
           <div className="flex items-center gap-1">
             <span

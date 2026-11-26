@@ -147,8 +147,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_deep_link::init())
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        .plugin(tauri_plugin_deep_link::init());
 
     app_builder
         .on_window_event(|window, event| {
@@ -178,7 +177,7 @@ pub fn run() {
             if let Some(icon) = app.default_window_icon().cloned() {
                 match TrayIconBuilder::new()
                     .icon(icon)
-                    .tooltip("ISpooferMotion")
+                    .tooltip("IspooferMotion pm")
                     .on_tray_icon_event(|tray, event| {
                         if let TrayIconEvent::Click {
                             button: MouseButton::Left,

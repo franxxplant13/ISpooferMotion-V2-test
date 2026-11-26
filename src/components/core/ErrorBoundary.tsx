@@ -1,12 +1,7 @@
-import { getVersion } from '@tauri-apps/api/app';
-import { type as getOsType, version as getOsVersion } from '@tauri-apps/plugin-os';
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useConfigStore } from '../../stores/configStore';
-import { fetchTelemetry } from '../../utils/apiClient';
 import { getTranslation } from '../../utils/i18n';
-import { isTauriRuntime } from '../../utils/tauriRuntime';
 
 interface Props {
   children?: ReactNode;
@@ -15,7 +10,6 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
-  reportStatus?: 'pending' | 'sent' | 'failed' | 'disabled';
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -29,54 +23,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    void (async () => {
-      try {
-        const { telemetryEnabled } = useConfigStore.getState().config.general;
-        if (!telemetryEnabled) {
-          this.setState({ reportStatus: 'disabled' });
-          return;
-        }
-        this.setState({ reportStatus: 'pending' });
-
-        let appVersion = 'Unknown';
-        let osInfo = 'Web Browser';
-
-        if (isTauriRuntime()) {
-          try {
-            appVersion = await getVersion();
-            const osName = await getOsType();
-            const osVersion = await getOsVersion();
-            osInfo = `${osName} ${osVersion}`;
-          } catch (e) {
-            console.error('Failed to get Tauri system info:', e);
-          }
-        }
-
-        const baseUrl =
-          import.meta.env.VITE_API_BASE_URL === undefined
-            ? 'https://ispoofermotion.com'
-            : import.meta.env.VITE_API_BASE_URL;
-
-        const payload = {
-          errorName: error.name,
-          errorMessage: error.message,
-          stackTrace: errorInfo.componentStack + '\n\n' + (error.stack || ''),
-          appVersion,
-          appType: 'V2',
-          osInfo,
-        };
-
-        await fetchTelemetry(`${baseUrl}/api/app-errors`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        this.setState({ reportStatus: 'sent' });
-      } catch (e) {
-        console.error('Failed to submit crash report:', e);
-        this.setState({ reportStatus: 'failed' });
-      }
-    })();
+    console.error('Renderer error:', error, errorInfo.componentStack);
   }
 
   public render() {
@@ -105,13 +52,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </h1>
           <p className="text-text-muted max-w-md">
             {getTranslation(useLanguage.getState().lang, 'misc.errorBoundaryDesc')}{' '}
-            {this.state.reportStatus === 'sent'
-              ? getTranslation(useLanguage.getState().lang, 'misc.crashReportSent')
-              : this.state.reportStatus === 'disabled'
-                ? getTranslation(useLanguage.getState().lang, 'misc.crashReportDisabled')
-                : this.state.reportStatus === 'failed'
-                  ? 'The crash report could not be sent.'
-                  : 'Attempting to send a crash report...'}
+            {getTranslation(useLanguage.getState().lang, 'misc.crashReportDisabled')}
           </p>
           <div className="bg-bg-card border border-border p-4 rounded-xl mt-4 max-w-2xl text-left overflow-auto max-h-48 text-sm w-full font-mono shadow-inner">
             <div className="text-red-400 font-semibold mb-2">

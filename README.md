@@ -2,7 +2,7 @@
   <img src="./src/assets/app_icon.png" width="128" height="128" alt="ISpooferMotion">
 </p>
 
-<h1 align="center">ISpooferMotion V2</h1>
+<h1 align="center">IspooferMotion pm (V2 fork)</h1>
 
 <p align="center">
   A desktop asset replacement tool for Roblox Studio.
@@ -23,12 +23,12 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/releases/latest">
-    <img src="https://img.shields.io/github/v/release/ISpooferMotion/ISpooferMotion-V2?style=flat-square&label=release" alt="Latest Release">
+  <a href="https://github.com/franxxplant13/ISpooferMotion-V2-test/releases/latest">
+    <img src="https://img.shields.io/github/v/release/franxxplant13/ISpooferMotion-V2-test?style=flat-square&label=release" alt="Latest Release">
   </a>
   &nbsp;
-  <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/releases">
-    <img src="https://img.shields.io/github/downloads/ISpooferMotion/ISpooferMotion-V2/total?style=flat-square&label=downloads" alt="Downloads">
+  <a href="https://github.com/franxxplant13/ISpooferMotion-V2-test/releases">
+    <img src="https://img.shields.io/github/downloads/franxxplant13/ISpooferMotion-V2-test/total?style=flat-square&label=downloads" alt="Downloads">
   </a>
   &nbsp;
   <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/blob/main/LICENSE">
@@ -37,11 +37,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/releases/latest">Download</a>
+  <a href="https://github.com/franxxplant13/ISpooferMotion-V2-test/releases/latest">Download</a>
   ·
-  <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/issues/new?template=bug_report.md">Report a Bug</a>
+  <a href="https://github.com/franxxplant13/ISpooferMotion-V2-test/issues/new?template=bug_report.md">Report a Bug</a>
   ·
-  <a href="https://github.com/ISpooferMotion/ISpooferMotion-V2/issues/new?template=feature_request.md">Request a Feature</a>
+  <a href="https://github.com/franxxplant13/ISpooferMotion-V2-test/issues/new?template=feature_request.md">Request a Feature</a>
 </p>
 
 <br>
@@ -79,7 +79,7 @@ ISpooferMotion keeps the desktop application and Studio plugin synchronized so r
 
 ## Installation
 
-Download the latest release for your platform from the [releases page](https://github.com/ISpooferMotion/ISpooferMotion-V2/releases/latest).
+Download the latest release for your platform from the [releases page](https://github.com/franxxplant13/ISpooferMotion-V2-test/releases/latest).
 
 | Platform | Package                               |
 | -------- | ------------------------------------- |
@@ -200,3 +200,7 @@ bun run check
 ISpooferMotion is licensed under the **GNU General Public License v3.0 or later**.
 
 See [`LICENSE`](LICENSE) for the full license text.
+
+## Fork installation and updates
+
+See [installation, manual updates, and data backups](docs/FORK-UPDATES.md).

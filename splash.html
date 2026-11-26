@@ -4,19 +4,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Updater</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <title>IspooferMotion pm Updater</title>
     <link rel="preload" as="image" href="/src-tauri/icons/128x128.png" fetchpriority="high" />
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap"
-    />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
     <link rel="stylesheet" href="/src/index.css" />
     <style>
       body {
@@ -60,30 +49,14 @@
       <div class="flex flex-col items-center justify-center space-y-4">
         <img
           src="/src-tauri/icons/128x128.png"
-          alt="ISpooferMotion"
+          alt="IspooferMotion pm"
           class="w-24 h-24 drop-shadow-xl"
           fetchpriority="high"
         />
-        <h1 class="text-xl font-bold tracking-tight text-[#fafafa]">ISpooferMotion</h1>
+        <h1 class="text-xl font-bold tracking-tight text-[#fafafa]">IspooferMotion pm</h1>
         <div class="flex items-center space-x-3 text-sm text-[#8d8d94]">
           <div class="spinner" id="spinner"></div>
-          <span id="status-text">Checking for updates...</span>
-        </div>
-        <div id="update-actions" class="hidden items-center space-x-3 mt-4">
-          <button
-            id="btn-skip"
-            class="px-4 py-2 text-sm font-medium text-[#c7c7cc] hover:text-[#fafafa] transition-colors bg-[#18181b] hover:bg-[#202024] border border-[#232327] rounded-md outline-none cursor-pointer"
-            style="-webkit-app-region: no-drag"
-          >
-            Skip
-          </button>
-          <button
-            id="btn-download"
-            class="px-4 py-2 text-sm font-medium text-[#0b0b0c] bg-[#ffffff] hover:bg-gray-200 transition-colors rounded-md shadow-[0_0_15px_rgba(255,255,255,0.15)] outline-none cursor-pointer"
-            style="-webkit-app-region: no-drag"
-          >
-            Download
-          </button>
+          <span id="status-text">Starting...</span>
         </div>
       </div>
     </div>

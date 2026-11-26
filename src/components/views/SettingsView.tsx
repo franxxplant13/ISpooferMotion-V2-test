@@ -2,6 +2,7 @@ import {
   ArrowDownUp,
   Bug,
   Gauge,
+  HardDrive,
   KeyRound,
   Laptop,
   Palette,
@@ -19,6 +20,7 @@ import RoutingSection from './config/RoutingSection';
 import UploadSection from './config/UploadSection';
 import AdvancedSection from './settings/AdvancedSection';
 import AppearanceCard from './settings/AppearanceCard';
+import BackupCard from './settings/BackupCard';
 import BehaviorCard from './settings/BehaviorCard';
 import CredentialsCard from './settings/CredentialsCard';
 import DangerCard from './settings/DangerCard';
@@ -39,6 +41,7 @@ export default function SettingsView() {
     { id: 'routing', label: t('config.routingLimits'), icon: <Gauge size={15} /> },
     { id: 'exclusions', label: t('config.exclusions'), icon: <ShieldAlert size={15} /> },
     { id: 'features', label: t('settings.advanced'), icon: <Wrench size={15} /> },
+    { id: 'backups', label: 'Backups', icon: <HardDrive size={15} /> },
     { id: 'debug', label: t('debug.title'), icon: <Bug size={15} /> },
     { id: 'danger', label: t('settings.dangerZone'), icon: <TriangleAlert size={15} /> },
   ];
@@ -167,6 +170,10 @@ export default function SettingsView() {
 
           <div id="section-features" className="scroll-mt-4">
             <AdvancedSection />
+          </div>
+
+          <div id="section-backups" className="scroll-mt-4">
+            <BackupCard />
           </div>
 
           <div id="section-debug" className="scroll-mt-4">

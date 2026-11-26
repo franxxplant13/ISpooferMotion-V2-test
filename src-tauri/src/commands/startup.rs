@@ -11,8 +11,9 @@ pub async fn close_splashscreen(app: AppHandle) -> bool {
             "main",
             tauri::WebviewUrl::App("index.html".into()),
         )
-        .title("ISpooferMotion")
+        .title("IspooferMotion pm")
         .inner_size(1100.0, 620.0)
+        .min_inner_size(800.0, 500.0)
         .resizable(true)
         .fullscreen(false)
         .decorations(false)

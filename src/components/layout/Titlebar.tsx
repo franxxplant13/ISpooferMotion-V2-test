@@ -4,6 +4,7 @@ import {
   Activity,
   Box,
   Check,
+  Copy,
   Eye,
   EyeOff,
   Film,
@@ -16,6 +17,7 @@ import {
   Search,
   Settings,
   SlidersHorizontal,
+  Square,
   Terminal,
   Users,
   Volume2,
@@ -55,6 +57,46 @@ export default function Titlebar() {
   const isPropertiesOpen = useSpooferStore((s) => s.isPropertiesOpen) ?? true;
   const setIsPropertiesOpen = useSpooferStore((s) => s.setIsPropertiesOpen) ?? (() => {});
   const [isPinned, setIsPinned] = useState(false);
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    const win = getCurrentWindow();
+    let cancelled = false;
+    let unlisten: (() => void) | undefined;
+    const syncWindowState = async () => {
+      try {
+        const maximized = await win.isMaximized();
+        if (!cancelled) setIsMaximized(maximized);
+      } catch (error) {
+        console.warn('Failed to read window state', error);
+      }
+    };
+    void win
+      .onResized(() => {
+        void syncWindowState();
+      })
+      .then((cleanup) => {
+        if (cancelled) cleanup();
+        else unlisten = cleanup;
+      })
+      .catch(console.warn);
+    void syncWindowState();
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, []);
+
+  const toggleMaximize = async () => {
+    try {
+      const win = getCurrentWindow();
+      await win.toggleMaximize();
+      setIsMaximized(await win.isMaximized());
+    } catch (error) {
+      console.warn('Failed to maximize or restore window', error);
+    }
+  };
 
   useEffect(() => {
     if (!isTauriRuntime()) return;
@@ -409,6 +451,23 @@ export default function Titlebar() {
             <Minus size={14} />
           </TooltipTrigger>
           <TooltipContent>{t('debug.minimize')}</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={toggleMaximize}
+                aria-label={isMaximized ? 'Restore window' : 'Maximize window'}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              />
+            }
+          >
+            {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+          </TooltipTrigger>
+          <TooltipContent>{isMaximized ? 'Restore window' : 'Maximize window'}</TooltipContent>
         </Tooltip>
 
         <Tooltip>

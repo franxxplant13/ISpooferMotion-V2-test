@@ -1,6 +1,5 @@
 import { addDebugLog } from './debugLogger';
 import { findPluginBridgePort } from './pluginBridge';
-import { isTauriRuntime } from './tauriRuntime';
 
 export async function getStudioPlaceIdFallback(): Promise<string> {
   try {
@@ -24,14 +23,5 @@ export async function getStudioPlaceIdFallback(): Promise<string> {
   } catch (e) {
     addDebugLog('warn', ['Failed to ping Studio for fallback placeId', e]);
     return '';
-  }
-}
-
-export async function fetchTelemetry(url: string, options?: RequestInit): Promise<Response> {
-  if (isTauriRuntime()) {
-    const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-    return tauriFetch(url, options as Parameters<typeof tauriFetch>[1]);
-  } else {
-    return fetch(url, options);
   }
 }

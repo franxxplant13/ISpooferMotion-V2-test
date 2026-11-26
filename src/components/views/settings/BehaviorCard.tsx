@@ -62,15 +62,6 @@ export default function BehaviorCard() {
         onCheckedChange={(v) => updateConfig('general', 'hideToTrayOnClose', v)}
       />
 
-      <SettingSwitchRow
-        label={t('settings.telemetry') || 'Anonymous Diagnostics'}
-        description={
-          t('settings.telemetryDesc') || 'Send anonymous error logs to help improve compatibility.'
-        }
-        checked={config.general.telemetryEnabled}
-        onCheckedChange={(v) => updateConfig('general', 'telemetryEnabled', v)}
-      />
-
       <div className="px-4 py-3 flex items-center justify-between gap-4 hover:bg-bg-elevated/20 transition-colors">
         <div className="space-y-0.5 min-w-0 flex-1">
           <span className="text-xs font-semibold text-text-primary block">

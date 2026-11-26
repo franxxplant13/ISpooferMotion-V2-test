@@ -7,7 +7,7 @@ export const AppConfigSchema = z.object({
   general: z.object({
     desktopNotifications: z.boolean().default(true),
     hideToTrayOnClose: z.boolean().default(false),
-    telemetryEnabled: z.boolean().default(true),
+    telemetryEnabled: z.boolean().default(false),
   }),
   advanced: z.object({
     autoCookieStudio: z.boolean().default(true),
@@ -94,7 +94,7 @@ export const DEFAULT_APP_CONFIG: AppConfig = {
   general: {
     desktopNotifications: true,
     hideToTrayOnClose: false,
-    telemetryEnabled: true,
+    telemetryEnabled: false,
   },
   advanced: {
     autoCookieStudio: true,

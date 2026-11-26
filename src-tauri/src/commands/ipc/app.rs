@@ -62,7 +62,7 @@ pub fn set_proxy_url(url: Option<String>) -> bool {
 #[specta::specta]
 #[must_use]
 pub fn get_release_source() -> String {
-    "ISpooferMotion/ISpooferMotion-V2".to_string()
+    "franxxplant13/ISpooferMotion-V2-test".to_string()
 }
 
 #[tauri::command]

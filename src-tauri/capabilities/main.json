@@ -16,6 +16,8 @@
     "core:window:allow-destroy",
     "core:window:allow-hide",
     "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-is-maximized",
     "core:window:allow-create",
     "core:webview:allow-create-webview-window",
     "dialog:default",
@@ -46,9 +48,6 @@
         },
         {
           "url": "http://127.0.0.1:3000/**"
-        },
-        {
-          "url": "https://ispoofermotion.com/**"
         },
         {
           "url": "https://api.github.com/**"

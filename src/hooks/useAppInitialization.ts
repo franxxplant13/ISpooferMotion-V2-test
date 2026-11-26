@@ -7,10 +7,6 @@ import { useConfigStore } from '../stores/configStore';
 import { isTauriRuntime } from '../utils/tauriRuntime';
 
 export function useAppInitialization() {
-  const [maintenance, setMaintenance] = useState<{ mode: boolean; message: string }>({
-    mode: false,
-    message: '',
-  });
   const [isRobloxApiDown, setIsRobloxApiDown] = useState(false);
 
   useEffect(() => {
@@ -35,103 +31,12 @@ export function useAppInitialization() {
     };
   }, []);
 
-  const telemetryEnabled = useConfigStore((s) => s.config.general.telemetryEnabled);
-
   const proxyUrl = useConfigStore((s) => s.config.advanced.proxyUrl);
   useEffect(() => {
     if (!isTauriRuntime()) return;
     void invoke('set_proxy_url', { url: proxyUrl || null }).catch(console.warn);
+    void invoke('initialize_remote_cache', { pushUrl: null }).catch(console.warn);
   }, [proxyUrl]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const tauriRuntime = isTauriRuntime();
-    const baseUrl =
-      import.meta.env.VITE_API_BASE_URL === undefined
-        ? 'https://ispoofermotion.com'
-        : import.meta.env.VITE_API_BASE_URL;
-    const defaultCacheWriteUrl = `${baseUrl.replace(/\/+$/, '')}/api/cache`;
-
-    if (tauriRuntime) {
-      void invoke('initialize_remote_cache', {
-        pushUrl: telemetryEnabled ? defaultCacheWriteUrl : null,
-      }).catch(console.warn);
-    }
-
-    const fetchConfig = async () => {
-      try {
-        let res;
-        if (tauriRuntime) {
-          const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-          res = await tauriFetch(`${baseUrl}/api/config`);
-        } else {
-          res = await fetch(`${baseUrl}/api/config`);
-        }
-        if (!res.ok || cancelled) return;
-
-        const data = await res.json();
-        if (cancelled) return;
-
-        const maintenanceMode = data.maintenanceMode === true;
-        setMaintenance({
-          mode: maintenanceMode,
-          message:
-            maintenanceMode && typeof data.maintenanceMessage === 'string'
-              ? data.maintenanceMessage
-              : '',
-        });
-      } catch (e) {
-        if (!cancelled) {
-          console.warn('Could not connect to app config server:', e);
-        }
-      }
-    };
-
-    void fetchConfig();
-    return () => {
-      cancelled = true;
-    };
-  }, [telemetryEnabled]);
-
-  useEffect(() => {
-    if (!isTauriRuntime() || !telemetryEnabled) return;
-
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    let controller: AbortController | undefined;
-    const sendHeartbeat = async () => {
-      const request = new AbortController();
-      controller = request;
-      const deadline = setTimeout(() => request.abort(), 15000);
-      try {
-        const baseUrl =
-          import.meta.env.VITE_API_BASE_URL === undefined
-            ? 'https://ispoofermotion.com'
-            : import.meta.env.VITE_API_BASE_URL;
-        const { fetch: tauriFetch } = await import('@tauri-apps/plugin-http');
-        if (cancelled) return;
-        await tauriFetch(`${baseUrl}/api/dev/heartbeat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ source: 'spoofer' }),
-          signal: request.signal,
-        });
-      } catch {
-        return;
-      } finally {
-        clearTimeout(deadline);
-        if (controller === request) controller = undefined;
-        if (!cancelled) timer = setTimeout(() => void sendHeartbeat(), 60000);
-      }
-    };
-
-    void sendHeartbeat();
-    return () => {
-      cancelled = true;
-      controller?.abort();
-      if (timer) clearTimeout(timer);
-    };
-  }, [telemetryEnabled]);
 
   useEffect(() => {
     const preventDrag = (e: Event) => e.preventDefault();
@@ -187,5 +92,5 @@ export function useAppInitialization() {
     };
   }, []);
 
-  return { maintenance, isRobloxApiDown };
+  return { maintenance: { mode: false, message: '' }, isRobloxApiDown };
 }

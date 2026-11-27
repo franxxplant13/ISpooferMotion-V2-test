@@ -59,8 +59,10 @@ pub fn uninstall_cleanup() -> Result<(), String> {
         }
     }
     let temp = std::env::temp_dir();
-    if let Err(error) = remove_owned_path(&temp.join("ispoofer_api_dump_v2.json")) {
-        errors.push(error.to_string());
+    match std::fs::remove_file(temp.join("ispoofer_api_dump_v2.json")) {
+        Ok(()) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(error) => errors.push(error.to_string()),
     }
     match std::fs::read_dir(temp) {
         Ok(entries) => {

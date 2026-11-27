@@ -43,7 +43,7 @@ Uninstall-App @('/S')
 if (!(Test-Path (Join-Path $roaming 'settings-test.json'))) { throw 'Keep-data uninstall erased settings.' }
 Install-App
 Uninstall-App @('/S', '/CLEAN')
-foreach ($path in @($roaming, $local, (Join-Path $plugins 'ISpooferMotion.rbxmx'), $cookieTemp, $apiTemp)) {
+foreach ($path in @($installDir, $roaming, $local, (Join-Path $plugins 'ISpooferMotion.rbxmx'), $cookieTemp, $apiTemp)) {
   if (Test-Path $path) { throw "Full cleanup left an owned path: $path" }
 }
 if (!(Test-Path (Join-Path $plugins 'KeepOtherPlugin.rbxmx'))) { throw 'Unrelated plugin was deleted.' }

@@ -387,6 +387,7 @@ pub async fn process_spoofer_action(
     }
 
     let assets_str = data.assets.clone().unwrap_or_default();
+    let mut source_names: HashMap<String, Vec<String>> = HashMap::new();
     let mut parsed_assets: Vec<(String, String, Option<String>, Option<String>)> = Vec::new();
     if let Ok(arr) = serde_json::from_str::<Vec<serde_json::Value>>(&assets_str) {
         for val in arr {
@@ -396,6 +397,9 @@ pub async fn process_spoofer_action(
                 let raw_value =
                     val.get("rawValue").and_then(|v| v.as_str()).map(ToString::to_string);
                 let name = val.get("name").and_then(|v| v.as_str()).map(ToString::to_string);
+                if let Some(names) = val.get("sourceNames").and_then(|v| v.as_array()) {
+                    source_names.insert(id.to_owned(), names.iter().filter_map(|n| n.as_str().map(str::to_owned)).collect());
+                }
                 parsed_assets.push((id.to_string(), t.to_string(), raw_value, name));
             }
         }
@@ -448,7 +452,7 @@ pub async fn process_spoofer_action(
         if !seen_asset_ids.insert(asset_id.clone()) {
             continue;
         }
-        if skip_existing_replacements && existing_replacements.contains_key(&asset_id) {
+        if !is_download_only_job && skip_existing_replacements && existing_replacements.contains_key(&asset_id) {
             continue;
         }
         deduped_assets.push((asset_id, asset_type, raw_value, name));
@@ -707,6 +711,7 @@ pub async fn process_spoofer_action(
     stream
         .for_each_concurrent(max_concurrency, |(i, (asset_id, asset_type, raw_value, asset_name))| {
             let ctx = Arc::clone(&ctx);
+            let names = source_names.get(&asset_id).cloned().unwrap_or_default();
 
             async move {
                 let exact_name = ctx.batch_metadata
@@ -876,13 +881,33 @@ pub async fn process_spoofer_action(
                                     disc.push((asset_id.clone(), place_id));
                                 }
                             }
+                            if let Some(dir) = &ctx.session_dir {
+                                let labels = if names.is_empty() { vec![exact_name.clone()] } else { names };
+                                if labels.len() > 1 {
+                                    ctx.log(&format!("Shared asset {asset_id} supplies {} Studio references: {}", labels.len(), labels.join(", ")), "info");
+                                }
+                                let mut all_saved = true;
+                                for label in labels {
+                                    match super::output::save_reference(std::path::Path::new(&file_path), dir, &label, file_ext).await {
+                                        Ok(path) => {
+                                            ctx.log(&format!("Saved {} from asset {asset_id}", path.display()), "info");
+                                            ctx.record_result(serde_json::json!({"id": asset_id, "name": label, "type": asset_type, "success": true, "stage": "download", "filePath": path}));
+                                        }
+                                        Err(error) => {
+                                            all_saved = false;
+                                            ctx.log(&format!("Could not save {label} from asset {asset_id}: {error}"), "error");
+                                            ctx.record_result(serde_json::json!({"id": asset_id, "name": label, "type": asset_type, "success": false, "stage": "download", "errorReason": error.to_string()}));
+                                        }
+                                    }
+                                }
+                                if all_saved { ctx.success_count.fetch_add(1, Ordering::Relaxed); }
+                                else { ctx.fail_count.fetch_add(1, Ordering::Relaxed); }
+                                return;
+                            }
                             let saved = async {
                                 let metadata = tokio::fs::metadata(&file_path).await?;
                                 if !metadata.is_file() || metadata.len() == 0 {
                                     return Err(std::io::Error::other("Downloaded file is missing or empty"));
-                                }
-                                if ctx.session_dir.is_some() {
-                                    tokio::fs::rename(&file_path, &final_path).await?;
                                 }
                                 Ok::<_, std::io::Error>(())
                             }.await;

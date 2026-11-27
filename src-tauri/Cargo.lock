@@ -120,7 +120,7 @@ checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
 name = "app"
-version = "2.8.6"
+version = "2.8.7"
 dependencies = [
  "aes-gcm",
  "aho-corasick",
@@ -164,6 +164,7 @@ dependencies = [
  "tauri-plugin-process",
  "tauri-plugin-updater",
  "tauri-specta",
+ "tempfile",
  "thiserror 2.0.19",
  "tokio",
  "tower-http",

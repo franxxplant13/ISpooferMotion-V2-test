@@ -38,6 +38,7 @@ import { Button } from '../ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { getAssetKey } from './asset-explorer/ExplorerTree';
 import CredentialsSection from './config/CredentialsSection';
 import ExclusionsSection from './config/ExclusionsSection';
 import RoutingSection from './config/RoutingSection';
@@ -608,11 +609,25 @@ export default function SpoofingView() {
     const extraIdsSet = new Set(extraIdsParsed);
     const assetInfoMap = new Map<string, { type: string; name: string; rawValue?: string }>();
 
+    const selectedKeys = useSpooferStore.getState().selectedAssetKeys;
+    const sourceNames = new Map<string, string[]>();
+    const seenKeys = new Set<string>();
     const gatherAllInfo = (nodes: RbxInstance[]) => {
       for (const node of nodes) {
         for (const asset of node.assets) {
           const id = getAssetId(asset);
           if (id && asset.type) {
+            const key = getAssetKey(asset);
+            if (
+              config.spoofing.downloadOnly &&
+              !seenKeys.has(key) &&
+              (!selectedKeys.size || selectedKeys.has(key))
+            ) {
+              seenKeys.add(key);
+              const names = sourceNames.get(id) || [];
+              names.push(asset.instanceName || node.name || `Asset ${id}`);
+              sourceNames.set(id, names);
+            }
             assetInfoMap.set(id, {
               type: asset.type,
               name: asset.instanceName || asset.path || node.name || `Asset ${id}`,
@@ -730,7 +745,7 @@ export default function SpoofingView() {
           ? 'animation'
           : info?.type || 'animation';
       const name = info?.name || `Asset ${id}`;
-      return { id, type, name, rawValue: info?.rawValue };
+      return { id, type, name, rawValue: info?.rawValue, sourceNames: sourceNames.get(id) };
     });
 
     setSpoofProgress(0);

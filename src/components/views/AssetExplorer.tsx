@@ -1904,7 +1904,7 @@ export default function AssetExplorer({
                         ? (t('spoof.runSpoofer') ?? 'Run Spoofer') + '…'
                         : config.spoofing.downloadOnly
                           ? selectedCount > 0
-                            ? `Download Selected (${selectedAssetIds.size} IDs)`
+                            ? `Download Selected (${selectedCount} refs, ${selectedAssetIds.size} IDs)`
                             : `Download All (${stats.displayed})`
                           : selectedCount > 0
                             ? `Spoof Selected (${selectedCount})`

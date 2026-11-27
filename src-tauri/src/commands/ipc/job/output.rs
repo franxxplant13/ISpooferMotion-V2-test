@@ -23,9 +23,70 @@ pub(super) fn create_session(root: &Path, place: &str) -> io::Result<PathBuf> {
     Err(io::Error::other("No available session number"))
 }
 
+/// Publish each reference under its Studio name, including references sharing the same ID.
+pub(super) async fn save_reference(source: &Path, dir: &Path, label: &str, ext: &str) -> io::Result<PathBuf> {
+    let mut input = tokio::fs::File::open(source).await?;
+    let expected = input.metadata().await?.len();
+    if expected == 0 {
+        return Err(io::Error::other("Downloaded file is empty"));
+    }
+    let (file, mut staged) = tempfile::NamedTempFile::new_in(dir)?.into_parts();
+    let mut output = tokio::fs::File::from_std(file);
+    let written = tokio::io::copy(&mut input, &mut output).await?;
+    tokio::io::AsyncWriteExt::flush(&mut output).await?;
+    drop(output);
+    if written != expected {
+        return Err(io::Error::other("Incomplete file copy"));
+    }
+    let clean: String = label.chars().take(100).map(|c| {
+        if c.is_control() || r#"<>:"/\|?*"#.contains(c) { '_' } else { c }
+    }).collect();
+    let trimmed = clean.trim().trim_end_matches(['.', ' ']);
+    let mut stem = if trimmed.is_empty() { "Unnamed".to_owned() } else { trimmed.to_owned() };
+    let device = stem.split('.').next().unwrap_or("").trim_end().to_uppercase();
+    if matches!(device.as_str(), "CON" | "PRN" | "AUX" | "NUL" | "CONIN$" | "CONOUT$") ||
+        device.strip_prefix("COM").or_else(|| device.strip_prefix("LPT"))
+            .is_some_and(|n| matches!(n, "1"|"2"|"3"|"4"|"5"|"6"|"7"|"8"|"9"|"¹"|"²"|"³")) {
+        stem.insert(0, '_');
+    }
+    for number in 1_u64.. {
+        let name = if number == 1 { format!("{stem}.{ext}") } else { format!("{stem} ({number}).{ext}") };
+        let path = dir.join(name);
+        match staged.persist_noclobber(&path) {
+            Ok(()) => return Ok(path),
+            Err(err) if err.error.kind() == io::ErrorKind::AlreadyExists => staged = err.path,
+            Err(err) => return Err(err.error),
+        }
+    }
+    Err(io::Error::other("No available filename"))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn ten_references_to_nine_sources_keep_their_names_and_contents() {
+        let session = tempfile::tempdir().unwrap();
+        let root = session.path();
+        for i in 0..9 {
+            let input = root.join(format!(".partial-{i}"));
+            std::fs::write(&input, format!("asset {i}")).unwrap();
+            let label = format!("Move {i}");
+            let path = save_reference(&input, root, &label, "rbxm").await.unwrap();
+            assert_eq!(path, root.join(format!("{label}.rbxm")));
+            if i == 0 {
+                let alias = save_reference(&input, root, "Other move", "rbxm").await.unwrap();
+                assert_eq!(std::fs::read(alias).unwrap(), std::fs::read(path).unwrap());
+            }
+        }
+        let count = std::fs::read_dir(root).unwrap().flatten()
+            .filter(|entry| entry.path().extension().is_some_and(|e| e == "rbxm")).count();
+        assert_eq!(count, 10);
+        let duplicate = save_reference(&root.join(".partial-1"), root, "Move 0", "rbxm").await.unwrap();
+        assert_eq!(duplicate, root.join("Move 0 (2).rbxm"));
+        assert_eq!(std::fs::read(root.join("Move 0.rbxm")).unwrap(), b"asset 0");
+    }
 
     #[test]
     fn sessions_are_distinct_and_confined_to_the_chosen_directory() {

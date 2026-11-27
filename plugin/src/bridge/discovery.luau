@@ -97,7 +97,7 @@ local function discoverServer(): (boolean, boolean, string?)
 
 		for j = idx, idx + batchSize - 1 do
 			batchPending[1] += 1
-			task.spawn(probeUrl, urls[j], results, batchPending, cancelledRef, statsRef)
+			spawnSessionTask(probeUrl, urls[j], results, batchPending, cancelledRef, statsRef)
 		end
 
 		-- Let RequestAsync enforce its timeout. A separate timer could discard a

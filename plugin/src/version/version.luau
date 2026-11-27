@@ -1,1 +1,1 @@
-local PLUGIN_VERSION: string = "2.8.8"
+local PLUGIN_VERSION: string = "2.8.9"

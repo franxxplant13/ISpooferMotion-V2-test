@@ -227,7 +227,7 @@ local function startRequestedScan(decoded: any)
 	logToPlugin("Starting desktop scan " .. tostring(decoded.requestId or ""))
 	autoReplaceEnabled = true
 	setPluginGuiStatus("Scanning Assets...")
-	task.spawn(scan)
+	spawnSessionTask(scan)
 end
 
 local function queuePatchBatch(patches: any)
@@ -244,7 +244,7 @@ local function startPatchBatch(patches: any)
 	logToPlugin("Received " .. #patches .. " replacements from Desktop App")
 	autoReplaceEnabled = false
 	setPluginGuiStatus("Applying " .. #patches .. " targeted replacements...")
-	task.spawn(applyPatches, patches)
+	spawnSessionTask(applyPatches, patches)
 end
 
 local function markConnectionLost(baseUrl: string, reason: string)
@@ -281,7 +281,7 @@ function startPolling(): ()
 
 	polling = true
 
-	task.spawn(function()
+	spawnSessionTask(function()
 		local wasConnected = false
 
 		local lastReason = nil
@@ -293,7 +293,7 @@ function startPolling(): ()
 					logToPlugin("[PM SPOOFER] Connected to " .. BASE_URL)
 					setConnectionStatus(true)
 					setPluginGuiStatus("Waiting for scan or replacements...")
-					task.spawn(fetchApiDumpProperties)
+					spawnSessionTask(fetchApiDumpProperties)
 					wasConnected = true
 					lastReason = nil
 					pollFailureStreak = 0
@@ -317,7 +317,7 @@ function startPolling(): ()
 		end
 	end)
 
-	task.spawn(function()
+	spawnSessionTask(function()
 		while polling do
 			if deferredScanRequest and not operationBusy() then
 				local request = deferredScanRequest
@@ -392,7 +392,7 @@ function startPolling(): ()
 		end
 	end)
 
-	task.spawn(function()
+	spawnSessionTask(function()
 		task.wait(0.25)
 		while polling do
 			if #deferredPatchBatches > 0 and not operationBusy() then

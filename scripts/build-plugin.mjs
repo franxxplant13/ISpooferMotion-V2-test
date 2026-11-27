@@ -22,7 +22,7 @@ if (
 writeFileSync(versionLuauPath, nextVersionSource, 'utf8');
 
 function expandPluginIncludes(source, fromFile, stack = []) {
-  return source.replace(/^--#include\s+"([^"]+)"\s*$/gm, (_match, includePath) => {
+  return source.replace(/^[ \t]*--#include\s+"([^"]+)"\s*$/gm, (_match, includePath) => {
     const resolvedInclude = resolve(dirname(fromFile), includePath);
     const normalizedPluginRoot = resolve(pluginRoot).toLowerCase();
     const normalizedInclude = resolvedInclude.toLowerCase();

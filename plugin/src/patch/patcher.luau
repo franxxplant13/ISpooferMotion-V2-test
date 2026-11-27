@@ -539,6 +539,7 @@ local function applyPatches(patches: any)
 
 	pcall(function()
 		recording = ChangeHistoryService:TryBeginRecording("PM SPOOFER Pre-Patch")
+		session.recording = recording
 	end)
 
 	local function finishPatch()
@@ -550,6 +551,7 @@ local function applyPatches(patches: any)
 				)
 			end)
 			recording = nil
+			session.recording = nil
 		end
 		patchRunning = false
 	end

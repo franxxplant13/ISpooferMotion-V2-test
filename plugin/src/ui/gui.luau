@@ -3,15 +3,6 @@
 --!nolint
 
 local CoreGui = game:GetService("CoreGui")
-local pmIcon
-pcall(function()
-	local image = game:GetService("AssetService")
-		:CreateEditableImage({ Size = Vector2.new(48, 48) })
-	local pixels = game:GetService("EncodingService")
-		:Base64Decode(buffer.fromstring("__PM_ICON_BASE64__"))
-	image:WritePixelsBuffer(Vector2.zero, Vector2.new(48, 48), pixels)
-	pmIcon = Content.fromObject(image)
-end)
 local gui = nil
 local statusText = nil
 local logsScrollingFrame = nil
@@ -44,12 +35,7 @@ local function createPluginGui()
 	gui.Name = "ISpooferMotionPluginGui"
 	gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-	local success = pcall(function()
-		gui.Parent = CoreGui
-	end)
-	if not success then
-		gui.Parent = game:GetService("StarterGui")
-	end
+	gui.Parent = CoreGui
 
 	local container = Instance.new("Frame")
 	container.Name = "MainPanel"
@@ -125,7 +111,7 @@ local function createPluginGui()
 		end
 	end)
 
-	game:GetService("UserInputService").InputChanged:Connect(function(input)
+	connectSessionInput(game:GetService("UserInputService").InputChanged, function(input)
 		if input == dragInput and dragging then
 			update(input)
 		end
@@ -251,7 +237,7 @@ local function createPluginGui()
 				openLogsButton.Text = "Error"
 			end
 
-			task.delay(1.5, function()
+			delaySessionTask(1.5, function()
 				if openLogsButton then
 					openLogsButton.Text = "Open Logs"
 					openLogsButton.TextColor3 = Color3.fromHex("#a1a1aa")
@@ -285,7 +271,7 @@ local function createPluginGui()
 		clearPluginLogs()
 		clearLogsButton.Text = "Cleared"
 
-		task.delay(1.5, function()
+		delaySessionTask(1.5, function()
 			if clearLogsButton and clearLogsButton.Parent then
 				clearLogsButton.Text = "Clear"
 				clearLogsButton.TextColor3 = Color3.fromHex("#a1a1aa")
@@ -314,11 +300,7 @@ local function createPluginGui()
 	closeButton.MouseLeave:Connect(function()
 		closeButton.TextColor3 = Color3.fromHex("#52525b")
 	end)
-	closeButton.MouseButton1Click:Connect(function()
-		if gui then
-			gui.Enabled = false
-		end
-	end)
+	closeButton.MouseButton1Click:Connect(stopSession)
 
 	local tabBar = Instance.new("Frame")
 	tabBar.Name = "TabBar"
@@ -428,7 +410,7 @@ local function createPluginGui()
 		local maxScroll = logsScrollingFrame.AbsoluteCanvasSize.Y
 			- logsScrollingFrame.AbsoluteWindowSize.Y
 		local isAtBottom = logsScrollingFrame.CanvasPosition.Y >= (maxScroll - 50)
-		task.defer(function()
+		delaySessionTask(0, function()
 			if isAtBottom or maxScroll <= 0 then
 				logsScrollingFrame.CanvasPosition =
 					Vector2.new(0, logsScrollingFrame.AbsoluteCanvasSize.Y)
@@ -621,7 +603,7 @@ local function createPluginGui()
 			updateSpeedFromInput(input.Position.X)
 		end
 	end)
-	game:GetService("UserInputService").InputChanged:Connect(function(input)
+	connectSessionInput(game:GetService("UserInputService").InputChanged, function(input)
 		if
 			speedDragging
 			and (
@@ -632,7 +614,7 @@ local function createPluginGui()
 			updateSpeedFromInput(input.Position.X)
 		end
 	end)
-	game:GetService("UserInputService").InputEnded:Connect(function(input)
+	connectSessionInput(game:GetService("UserInputService").InputEnded, function(input)
 		if
 			input.UserInputType == Enum.UserInputType.MouseButton1
 			or input.UserInputType == Enum.UserInputType.Touch
@@ -704,7 +686,7 @@ local function createPluginGui()
 						runManualBtn.Text =
 							string.format("Done! (%d swapped • %s)", replaced, timeStr)
 						setBg(runManualBtn, Color3.fromHex("#10b981"))
-						task.delay(3.5, function()
+						delaySessionTask(3.5, function()
 							if runManualBtn and runManualBtn.Parent and not manualRunning then
 								runManualBtn.Text = "Run Replacements"
 								setBg(runManualBtn, Color3.fromHex("#27272a"))
@@ -844,7 +826,7 @@ end
 
 local function setPluginGuiStatus(text: string, silent: boolean?)
 	if not gui then
-		createPluginGui()
+		return
 	end
 	if statusText then
 		statusText.Text = text
@@ -892,7 +874,7 @@ end
 
 function setConnectionStatus(isConnected)
 	if not gui then
-		createPluginGui()
+		return
 	end
 	if connectionStatusText then
 		if isConnected then

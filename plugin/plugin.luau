@@ -19,26 +19,26 @@ pcall(function()
 end)
 
 local toolbar = plugin:CreateToolbar("PM SPOOFER")
-local button = toolbar:CreateButton(
+local toolbarButton = toolbar:CreateButton(
 	"IspooferMotionPanel",
 	"Turn PM SPOOFER on or off in this place",
 	"",
 	"PM SPOOFER"
 )
-button.ClickableWhenViewportHidden = true
+toolbarButton.ClickableWhenViewportHidden = true
 if pmIcon then
 	pcall(function()
-		button.IconContent = pmIcon
+		toolbarButton.IconContent = pmIcon
 	end)
 end
 
-local current = nil
+local activeSession = nil
 local function stopSession()
-	local session = current
+	local session = activeSession
 	if not session then
 		return
 	end
-	current = nil
+	activeSession = nil
 	session.active = false
 	for _, connection in session.connections do
 		connection:Disconnect()
@@ -57,7 +57,7 @@ local function stopSession()
 	if session.close then
 		session.close()
 	end
-	button:SetActive(false)
+	toolbarButton:SetActive(false)
 end
 
 local function initialize(session)
@@ -80,23 +80,23 @@ local function initialize(session)
 end
 
 local function activate()
-	if current or not canActivate() then
+	if activeSession or not canActivate() then
 		return
 	end
 	local session =
 		{ active = true, connections = {}, threads = setmetatable({}, { __mode = "k" }) }
-	current = session
+	activeSession = session
 	local ok, reason = pcall(initialize, session)
 	if not ok then
 		stopSession()
 		warn("[PM SPOOFER] Could not start: " .. tostring(reason))
-	elseif current == session then
-		button:SetActive(true)
+	elseif activeSession == session then
+		toolbarButton:SetActive(true)
 	end
 end
 
-button.Click:Connect(function()
-	if current then
+toolbarButton.Click:Connect(function()
+	if activeSession then
 		stopSession()
 	else
 		activate()
@@ -112,8 +112,8 @@ local action = plugin:CreatePluginAction(
 action.Triggered:Connect(activate)
 
 local function updateMode()
-	button.Enabled = canActivate()
-	if not button.Enabled then
+	toolbarButton.Enabled = canActivate()
+	if not toolbarButton.Enabled then
 		stopSession()
 	end
 end

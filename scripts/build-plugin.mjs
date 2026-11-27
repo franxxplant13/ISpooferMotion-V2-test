@@ -47,7 +47,8 @@ function expandPluginIncludes(source, fromFile, stack = []) {
       resolvedInclude,
     ]);
 
-    return expandedSource.trimEnd();
+    // Each include is linted separately. Only the entry file can set bundle-wide filters.
+    return expandedSource.replace(/^--# selene:.*$/gm, '').trimEnd();
   });
 }
 

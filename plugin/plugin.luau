@@ -8,6 +8,7 @@ local STRING_SCAN_PROPERTIES: { [string]: { string } } = {}
 local startPolling: any
 local hidePluginGui: any
 local togglePluginGui: any
+local showPluginGui: any
 local logToPlugin: any
 local polling: any
 local BASE_URL: any
@@ -492,15 +493,28 @@ _G.ISpooferMotionPlugin = {
 	runManualReplacementsSync = runManualReplacements,
 }
 
-print("[ISpooferMotion] Plugin loaded. Starting background connection to Desktop App...")
-startPolling()
-
-local toolbar = plugin:CreateToolbar("ISpooferMotion")
-local toggleButton =
-	toolbar:CreateButton("Toggle UI", "Show/Hide ISpooferMotion UI", "rbxassetid://137844667859456")
+local toolbar = plugin:CreateToolbar("IspooferMotion pm")
+local toggleButton = toolbar:CreateButton(
+	"IspooferMotionPanel",
+	"Show or hide the IspooferMotion pm panel",
+	"rbxassetid://137844667859456",
+	"IspooferMotion pm"
+)
+toggleButton.ClickableWhenViewportHidden = true
 
 toggleButton.Click:Connect(function()
 	togglePluginGui()
+end)
+
+local openPanelAction = plugin:CreatePluginAction(
+	"IspooferMotionOpenPanel",
+	"Open IspooferMotion pm",
+	"Open the IspooferMotion pm panel",
+	"",
+	true
+)
+openPanelAction.Triggered:Connect(function()
+	showPluginGui()
 end)
 
 plugin.Unloading:Connect(function()
@@ -508,3 +522,6 @@ plugin.Unloading:Connect(function()
 	BASE_URL = nil
 	hidePluginGui()
 end)
+
+print("[ISpooferMotion] Plugin loaded. Starting background connection to Desktop App...")
+startPolling()

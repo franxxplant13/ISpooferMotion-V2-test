@@ -1,7 +1,7 @@
 --!nocheck
 --!nolint
 
-local DISCOVERY_REQUEST_TIMEOUT_SECS = 2
+local DISCOVERY_REQUEST_TIMEOUT_SECS = 5
 
 local MAX_CONCURRENT_PROBES = 8
 
@@ -14,22 +14,10 @@ local function probeUrl(
 	results: { { url: string, startedAt: number, health: any } },
 	pendingRef: { number },
 	cancelledRef: { boolean },
-	statsRef: { responded: number, wrongApp: number }
+	statsRef: { responded: number, wrongApp: number, error: string? }
 )
-	local done = false
-
-	task.delay(DISCOVERY_REQUEST_TIMEOUT_SECS, function()
-		if not done then
-			done = true
-			pendingRef[1] -= 1
-		end
-	end)
-
 	if cancelledRef[1] then
-		if not done then
-			done = true
-			pendingRef[1] -= 1
-		end
+		pendingRef[1] -= 1
 		return
 	end
 
@@ -37,12 +25,12 @@ local function probeUrl(
 		return HttpService:RequestAsync({
 			Url = url .. "/health",
 			Method = "GET",
+			Timeout = DISCOVERY_REQUEST_TIMEOUT_SECS,
 		})
 	end)
 
-	if not done then
-		done = true
-		if ok and response and response.Success and not cancelledRef[1] then
+	if not cancelledRef[1] then
+		if ok and response and response.Success then
 			statsRef.responded += 1
 			local decodedOk, decoded = decodeJsonResponseBody(response)
 			if decodedOk and responseLooksLikeAppHealth(decoded) then
@@ -55,25 +43,28 @@ local function probeUrl(
 			else
 				statsRef.wrongApp += 1
 			end
+		else
+			local detail = ok and ("HTTP " .. tostring(response and response.StatusCode))
+				or tostring(response)
+			local lowerDetail = string.lower(detail)
+			if
+				not statsRef.error
+				or string.find(lowerDetail, "permission", 1, true)
+				or string.find(lowerDetail, "denied", 1, true)
+			then
+				statsRef.error = url .. "/health: " .. string.sub(detail, 1, 400)
+			end
 		end
-		pendingRef[1] -= 1
 	end
+	pendingRef[1] -= 1
 end
 
 local function discoverServer(): (boolean, boolean, string?)
-	local httpOk, httpEnabled = pcall(function()
-		return (HttpService :: any).HttpEnabled
-	end)
-	if httpOk and not httpEnabled then
-		return false,
-			false,
-			"Roblox HttpService is disabled. Enable 'Allow HTTP Requests' "
-				.. "in Game Settings > Security, then the plugin will connect automatically."
-	end
-
+	-- Plugin HTTP permissions are independent of the experience's HttpEnabled setting.
+	-- Try the local request and report its actual result instead of blocking here.
 	local results: { { url: string, startedAt: number, health: any } } = {}
 	local cancelledRef = { false }
-	local statsRef = { responded = 0, wrongApp = 0 }
+	local statsRef = { responded = 0, wrongApp = 0, error = nil :: string? }
 
 	local portStart = PORT_START
 	local portEnd = PORT_END
@@ -101,15 +92,17 @@ local function discoverServer(): (boolean, boolean, string?)
 	local idx = 1
 	while idx <= #urls do
 		local batchPending = { 0 }
-		local batchSize = math.min(MAX_CONCURRENT_PROBES, #urls - idx + 1)
+		-- Make the usual first connection alone so Studio can present one permission prompt.
+		local batchSize = idx == 1 and 1 or math.min(MAX_CONCURRENT_PROBES, #urls - idx + 1)
 
 		for j = idx, idx + batchSize - 1 do
 			batchPending[1] += 1
 			task.spawn(probeUrl, urls[j], results, batchPending, cancelledRef, statsRef)
 		end
 
-		local batchDeadline = os.clock() + DISCOVERY_REQUEST_TIMEOUT_SECS + 0.5
-		while batchPending[1] > 0 and os.clock() < batchDeadline do
+		-- Let RequestAsync enforce its timeout. A separate timer could discard a
+		-- successful response while the user is answering Studio's permission prompt.
+		while batchPending[1] > 0 do
 			task.wait(0.05)
 		end
 
@@ -149,10 +142,13 @@ local function discoverServer(): (boolean, boolean, string?)
 		)
 	else
 		reason = string.format(
-			"No desktop app found on ports %d-%d. Make sure ISpooferMotion is running and Roblox Studio HTTP requests are enabled.",
+			"Cannot reach the desktop app on ports %d-%d. Keep IspooferMotion pm open and allow this local plugin to access localhost / 127.0.0.1 when Studio prompts.",
 			portStart,
 			portEnd
 		)
+	end
+	if statsRef.error then
+		reason ..= "\nStudio request error: " .. statsRef.error
 	end
 	return false, false, reason
 end

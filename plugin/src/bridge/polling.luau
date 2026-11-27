@@ -285,7 +285,7 @@ function startPolling(): ()
 	task.spawn(function()
 		local wasConnected = false
 
-		local reasonLogged = false
+		local lastReason = nil
 		while polling do
 			if not BASE_URL then
 				local connected, changed, reason = discoverServer()
@@ -296,7 +296,7 @@ function startPolling(): ()
 					setPluginGuiStatus("Waiting for scan or replacements...")
 					task.spawn(fetchApiDumpProperties)
 					wasConnected = true
-					reasonLogged = false
+					lastReason = nil
 					pollFailureStreak = 0
 					patchFailureStreak = 0
 				elseif not connected then
@@ -304,8 +304,8 @@ function startPolling(): ()
 
 					setPluginGuiStatus("Waiting for Desktop App...", true)
 
-					if not reasonLogged then
-						reasonLogged = true
+					if reason ~= lastReason then
+						lastReason = reason
 						logToPlugin(
 							"[Warning] [ISpooferMotion] "
 								.. (reason or "Desktop App not found; reconnecting...")

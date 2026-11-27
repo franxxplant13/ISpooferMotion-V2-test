@@ -862,9 +862,19 @@ function hidePluginGui()
 	end
 end
 
-function togglePluginGui()
+function showPluginGui()
 	if not gui then
 		createPluginGui()
+	end
+	if gui then
+		gui.Enabled = true
+	end
+end
+
+function togglePluginGui()
+	if not gui then
+		showPluginGui()
+		return
 	end
 	if gui then
 		gui.Enabled = not gui.Enabled

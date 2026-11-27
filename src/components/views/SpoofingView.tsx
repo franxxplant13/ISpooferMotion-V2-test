@@ -13,6 +13,7 @@ import { useConfigStore } from '../../stores/configStore';
 import { applyReplacements, useSpooferStore } from '../../stores/spooferStore';
 import { getStudioPlaceIdFallback } from '../../utils/apiClient';
 import { addDebugLog } from '../../utils/debugLogger';
+import { authorizeJob } from '../../utils/jobAuthorization';
 import { type PendingSpoofRetry, takeSpoofRetry } from '../../utils/jobTypes';
 import { type PluginAsset } from '../../utils/pluginBridge';
 import type { RbxInstance } from '../../utils/robloxPlaceParser/types';
@@ -701,8 +702,13 @@ export default function SpoofingView() {
     setLogs([
       `[INFO] Job initialized. Downloader: ${downloaderName} | Uploader: ${uploaderName}\n`,
     ]);
-    const apiKeyReady = await validateApiKeyForRun(apiKey, selectedUser);
-    if (!apiKeyReady) return;
+    const authorization = await authorizeJob(
+      config.spoofing.downloadOnly,
+      uploadTypes,
+      apiKey,
+      (key) => validateApiKeyForRun(key, selectedUser),
+    );
+    if (!authorization) return;
 
     const finalAssetsPayload = Array.from(finalAssetIds).map((id) => {
       const info = assetInfoMap.get(id);
@@ -770,10 +776,9 @@ export default function SpoofingView() {
       const baseData = {
         cookie,
         fallbackCookies: fallbackCookies.length > 0 ? fallbackCookies : null,
-        apiKey,
+        ...authorization,
         groupId: selectedGroup !== 'none' ? selectedGroup : null,
         spoofSounds,
-        uploadTypes: config.spoofing.downloadOnly ? ['download'] : uploadTypes,
         downloadPath: config.spoofing.downloadPath,
         placeName: runContext?.placeName || loadedFileName,
         concurrent: config.advanced.concurrentSpoofing,

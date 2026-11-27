@@ -49,7 +49,7 @@ jobs:
       - run: bun run format:prettier:check
       - run: bun run format:stylua:check
       - run: bun run build:plugin
-      - run: bun test tests/dataBackup.test.ts
+      - run: bun test tests
       - run: bun run typecheck
       - run: bun run lint
       - run: bun run build:app

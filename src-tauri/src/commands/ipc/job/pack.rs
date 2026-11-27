@@ -22,7 +22,7 @@ fn add_clip(pack: &mut WeakDom, path: &Path, name: &str) -> Result<(), String> {
         }
     }
     let copy = source.clone_into_external(clip, pack);
-    pack.get_by_ref_mut(copy).unwrap().name = name.into();
+    pack.get_by_ref_mut(copy).ok_or("Could not copy animation into pack")?.name = name.into();
     pack.transfer_within(copy, pack.root_ref());
     Ok(())
 }

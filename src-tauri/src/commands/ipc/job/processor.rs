@@ -664,7 +664,11 @@ pub async fn process_spoofer_action(
             finish_spoofer_job(&job_id);
             return Err("Choose only animations and enter a pack name.".into());
         }
-        match tempfile::tempdir_in(session_dir.as_ref().unwrap()) {
+        let Some(dir) = &session_dir else {
+            finish_spoofer_job(&job_id);
+            return Err("Animation packs require a download session.".into());
+        };
+        match tempfile::tempdir_in(dir) {
             Ok(dir) => Some(dir),
             Err(err) => { finish_spoofer_job(&job_id); return Err(err.into()); }
         }

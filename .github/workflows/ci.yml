@@ -88,6 +88,7 @@ jobs:
       - run: bun run build:plugin
       - run: bun run rust:check
       - run: bun run rust:lint
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib cleanup -- --test-threads=1
 
   windows-release:
     name: Build Windows installer (manual updates)
@@ -121,6 +122,10 @@ jobs:
 
       - name: Build app and bundled Studio plugin
         run: bun run tauri:build --bundles nsis
+
+      - name: Test Windows install and clean uninstall
+        shell: pwsh
+        run: ./scripts/test-windows-uninstall.ps1
 
       - name: Create download checksums
         shell: pwsh

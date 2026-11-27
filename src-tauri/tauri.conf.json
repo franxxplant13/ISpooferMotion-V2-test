@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "ISpooferMotion",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "identifier": "ISpooferMotion-V2",
   "build": {
     "frontendDist": "../dist",
@@ -54,7 +54,8 @@
     "windows": {
       "nsis": {
         "installerIcon": "assets/app_icon.ico",
-        "uninstallerIcon": "assets/app_icon.ico"
+        "uninstallerIcon": "assets/app_icon.ico",
+        "installerHooks": "windows/cleanup-hooks.nsh"
       }
     },
     "icon": [

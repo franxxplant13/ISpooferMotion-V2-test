@@ -1,6 +1,5 @@
 #![allow(clippy::needless_pass_by_value)]
 use super::{AppHandle, DialogExt, Manager};
-use crate::commands::ipc::secrets::clear_profile_secrets;
 use crate::commands::AnyValue;
 
 pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -109,16 +108,32 @@ pub async fn select_folder(app: AppHandle) -> crate::error::Result<Option<String
 #[tauri::command]
 #[specta::specta]
 pub async fn uninstall_app(app: AppHandle) -> crate::error::Result<bool> {
-    clear_profile_secrets(app.clone(), None).await?;
-    let data_dir = app.path().app_data_dir()?;
-    match tokio::fs::remove_dir_all(&data_dir).await {
-        Ok(()) => {}
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
-        Err(err) => return Err(err.into()),
+    #[cfg(windows)]
+    {
+        let exe = std::env::current_exe()?;
+        let directory = exe.parent().ok_or("Could not locate the installation directory")?;
+        let uninstaller = directory.join("uninstall.exe");
+        if !uninstaller.is_file() {
+            return Err("Uninstaller not found. Use Windows Settings > Apps to remove the application.".into());
+        }
+        std::process::Command::new(uninstaller).spawn()?;
+        crate::commands::startup::uninstall_roblox_plugin();
+        app.exit(0);
+        Ok(true)
     }
-    crate::commands::startup::uninstall_roblox_plugin();
-    app.exit(0);
-    Ok(true)
+    #[cfg(not(windows))]
+    {
+        crate::commands::ipc::secrets::clear_profile_secrets(app.clone(), None).await?;
+        let data_dir = app.path().app_data_dir()?;
+        match tokio::fs::remove_dir_all(&data_dir).await {
+            Ok(()) => {}
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
+            Err(err) => return Err(err.into()),
+        }
+        crate::commands::startup::uninstall_roblox_plugin();
+        app.exit(0);
+        Ok(true)
+    }
 }
 
 #[tauri::command]

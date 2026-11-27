@@ -14,23 +14,20 @@ export default function DebugCard() {
 
   async function handleClearCache(successMessage = 'Cache cleared.') {
     try {
-      await Promise.all([
-        invoke('clear_asset_cache'),
-        invoke('clear_plugin_cache'),
-        invoke('clear_app_cache'),
-      ]);
-
       const store = useSpooferStore.getState();
-      store.setLastReplacements({});
+      if (
+        store.isSpoofing ||
+        store.isReplacing ||
+        store.isScanningStudio ||
+        store.isGrantingPermissions ||
+        store.isDiscoveringPlaceIds
+      ) {
+        store.showToast('error', 'Finish the current operation before clearing cache.');
+        return;
+      }
+      await invoke('clear_asset_cache');
+      await invoke('clear_app_cache');
       store.clearAssetStatuses();
-      store.setAssetForcePlaceIds({});
-
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('ISpooferMotion_') || key.startsWith('preview-')) {
-          localStorage.removeItem(key);
-        }
-      });
-      sessionStorage.clear();
       store.showToast('success', successMessage);
       logIsm('success', successMessage);
     } catch (err) {
@@ -52,7 +49,7 @@ export default function DebugCard() {
     <SettingCard
       icon={Bug}
       title={t('debug.title') || 'Debug & Diagnostics'}
-      description="Enable developer debug console and manage local cache files."
+      description="Clear temporary asset data while keeping settings, saved mappings, accounts, and credentials."
     >
       <SettingSwitchRow
         label={t('settings.debugMode') || 'Developer Debug Mode'}

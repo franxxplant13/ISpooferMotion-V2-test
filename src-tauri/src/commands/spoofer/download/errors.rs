@@ -26,6 +26,19 @@ fn structured_error_details(body: &[u8]) -> String {
     crate::commands::ipc::redact_log_message(&details)
 }
 
+pub fn request_error_details(error: reqwest::Error) -> String {
+    let error = error.without_url();
+    let mut details = error.to_string();
+    let mut source = std::error::Error::source(&error);
+    for _ in 0..5 {
+        let Some(cause) = source else { break };
+        details.push_str(": ");
+        details.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    crate::commands::ipc::redact_log_message(&details)
+}
+
 pub async fn read_download_failure(mut response: reqwest::Response) -> String {
     let read = tokio::time::timeout(Duration::from_secs(3), async {
         let mut body = Vec::new();
@@ -46,7 +59,15 @@ pub async fn read_download_failure(mut response: reqwest::Response) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::structured_error_details;
+    use super::{request_error_details, structured_error_details};
+
+    #[test]
+    fn download_diagnostics_include_the_underlying_network_error() {
+        let error = reqwest::Client::new().get("http://[").build().expect_err("invalid URL");
+        let details = request_error_details(error);
+        assert!(details.contains("invalid"));
+        assert!(!details.contains("http://["));
+    }
 
     #[test]
     fn download_diagnostics_keep_returned_codes_and_messages() {

@@ -320,7 +320,7 @@ pub async fn download_animation_asset_with_progress(
                 let download_resp = match send_result {
                     Ok(Ok(resp)) => resp,
                     Ok(Err(error)) => {
-                        last_error = format!("Download request failed: {error}");
+                        last_error = format!("Download request failed: {}", errors::request_error_details(error));
                         if attempt < 2 {
                             tokio::time::sleep(Duration::from_millis(1000 * (attempt + 1))).await;
                             continue;

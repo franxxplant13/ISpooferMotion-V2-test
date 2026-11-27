@@ -84,7 +84,7 @@ export function StudioScanProgress() {
       {expanded && (
         <div
           ref={outputRef}
-          className="max-h-40 overflow-y-auto border-t border-border-subtle px-4 py-2 font-mono text-[11px] select-text"
+          className="max-h-40 overflow-y-auto border-t border-border-subtle px-4 py-2 font-mono text-xs select-text"
           onScroll={() => {
             const output = outputRef.current;
             if (output)
@@ -93,7 +93,9 @@ export function StudioScanProgress() {
           aria-label="Scan progress and download errors"
         >
           {operationLogs.length === 0 && (
-            <p className="text-text-secondary">Waiting for progress from Studio…</p>
+            <p className="text-text-secondary">
+              {scanning ? 'Waiting for progress from Studio…' : 'Download errors will appear here.'}
+            </p>
           )}
           {operationLogs.map((entry) => (
             <p

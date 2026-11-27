@@ -248,6 +248,7 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
       <div
         className={cn(
           'h-7 rounded-sm hover:bg-accent/60 group transition-colors flex items-center pr-2 cursor-pointer select-none',
+          isSelected && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
           isInspected && 'bg-primary/15 font-semibold',
         )}
         style={{ paddingLeft: `${level * 16 + 20}px` }}
@@ -463,6 +464,7 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
       <div
         className={cn(
           'flex items-center py-1 px-1 hover:bg-accent/40 cursor-pointer rounded-sm group select-none transition-colors',
+          isChecked && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
           isInspected && 'bg-primary/15 font-semibold',
         )}
         style={{ paddingLeft: `${level * 16}px` }}

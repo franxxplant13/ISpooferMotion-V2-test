@@ -4,6 +4,7 @@ import Sidebar from './components/layout/Sidebar';
 import Titlebar from './components/layout/Titlebar';
 import { PortDiagnosticBanner } from './components/shared/PortDiagnosticBanner';
 import { RobloxStatusBanner } from './components/shared/RobloxStatusBanner';
+import { StudioScanProgress } from './components/shared/StudioScanProgress';
 import { TutorialGate } from './components/tutorial/TutorialGate';
 import { useConfig } from './contexts/ConfigContext';
 import { useLanguage } from './contexts/LanguageContext';
@@ -65,6 +66,7 @@ export default function App() {
         <div className="flex-1 relative overflow-hidden bg-transparent flex flex-col">
           <RobloxStatusBanner isVisible={isRobloxApiDown} />
           <PortDiagnosticBanner />
+          <StudioScanProgress />
 
           <div className="flex-1 relative overflow-hidden">
             <Suspense fallback={<div className="w-full h-full bg-background/50" />}>

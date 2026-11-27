@@ -29,7 +29,7 @@ import {
 } from '../../utils/robloxProfiles';
 import { appendSpoofingLog } from '../../utils/spoofingLogs';
 import type { ScanOptions } from '../../utils/studioScan';
-import { triggerStudioScan } from '../../utils/studioScan';
+import { StudioScanCancelled, triggerStudioScan } from '../../utils/studioScan';
 import { isTauriRuntime } from '../../utils/tauriRuntime';
 import PasteIdsModal from '../modals/PasteIdsModal';
 import ResultsModal from '../modals/ResultsModal';
@@ -446,6 +446,10 @@ export default function SpoofingView() {
         logIsm('info', `Studio scan completed. Found ${totalAssets} assets.`, true);
       }
     } catch (error) {
+      if (error instanceof StudioScanCancelled) {
+        setLogs((prev) => appendSpoofingLog(prev, '[INFO] Studio scan cancelled.\n'));
+        return;
+      }
       logIsm('error', `Studio scan failed: ${String(error)}`, true);
       setLogs((prev) => appendSpoofingLog(prev, `[ERROR] Studio scan failed: ${String(error)}\n`));
     } finally {

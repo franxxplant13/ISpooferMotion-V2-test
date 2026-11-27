@@ -102,6 +102,9 @@ local function flushRecords(records: { Record }): boolean
 		{ records = records, scanId = activeScanId, chunkId = scanChunkId + 1 }
 	)
 	if ok and response and response.success == false then
+		if response.cancelled or response.superseded then
+			scanCancelled = true
+		end
 		return false
 	end
 	if ok then

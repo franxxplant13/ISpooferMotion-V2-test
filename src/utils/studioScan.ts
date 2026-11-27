@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 
-import { fetchPluginBridge } from './pluginBridge';
+import { addDebugLog } from './debugLogger';
+import { fetchPluginBridge, findPluginBridgePort } from './pluginBridge';
 
 const SCAN_STALL_MS = 300_000;
 const SCAN_POLL_MS = 1500;
@@ -11,26 +12,52 @@ interface StudioHealth {
   scanGeneration?: number;
   completedScanGeneration?: number;
   abortedScanGeneration?: number;
+  scanRequestId?: string;
+  scanId?: string;
+}
+
+interface ScanSession {
+  requestId: string;
+  ready: Promise<{ port: string; previousGeneration: number }>;
+  cancelled: boolean;
+  cancellation?: Promise<void>;
+}
+
+let activeScan: ScanSession | null = null;
+
+export class StudioScanCancelled extends Error {
+  constructor() {
+    super('Studio scan cancelled.');
+  }
 }
 
 const readStudioHealth = () => invoke<StudioHealth>('get_studio_health_status');
 
-async function waitForStudioScanComplete(previousGeneration: number): Promise<void> {
+async function checkCancellation(session: ScanSession) {
+  if (session.cancelled) {
+    await session.cancellation;
+    if (session.cancelled) throw new StudioScanCancelled();
+  }
+}
+
+async function waitForStudioScanComplete(
+  previousGeneration: number,
+  session: ScanSession,
+): Promise<void> {
   const startedAt = Date.now();
   let lastProgressScanned: number | undefined;
   let lastProgressTime = startedAt;
   let lastSyncedTime = startedAt;
 
   while (Date.now() - lastProgressTime < SCAN_STALL_MS) {
+    await checkCancellation(session);
     const health = await readStudioHealth();
     const now = Date.now();
 
     if ((health.abortedScanGeneration ?? 0) > previousGeneration) {
-      throw new Error('Studio cancelled the scan before it finished.');
+      throw new Error('Studio stopped the scan before it finished. Check the plugin Console.');
     }
-    if ((health.completedScanGeneration ?? 0) > previousGeneration) {
-      return;
-    }
+    if ((health.completedScanGeneration ?? 0) > previousGeneration) return;
     if (health.synced) {
       lastSyncedTime = now;
     } else if (now - lastSyncedTime > 5000) {
@@ -54,7 +81,7 @@ async function waitForStudioScanComplete(previousGeneration: number): Promise<vo
     await new Promise((resolve) => setTimeout(resolve, SCAN_POLL_MS));
   }
   throw new Error(
-    'Studio scan stalled — no progress for 5 minutes. Open Roblox Studio and check that the ISpooferMotion plugin is connected, then try again. Very large places may need to be scanned manually from the plugin panel.',
+    'Studio scan stalled — no progress for 5 minutes. Check the plugin Console or cancel the scan and try a smaller scan path.',
   );
 }
 
@@ -63,55 +90,82 @@ export interface ScanOptions {
   scanPath?: string;
 }
 
-export async function triggerStudioScan(options?: ScanOptions): Promise<void> {
-  const { findPluginBridgePort } = await import('./pluginBridge');
-  const activePort = await findPluginBridgePort();
-
-  if (!activePort) {
-    const pid = await invoke<number | null>('find_studio_process').catch(() => null);
-    if (!pid) {
-      throw new Error('Please open Roblox Studio to connect the plugin.');
-    } else {
-      throw new Error(
-        'Roblox Studio is open, but the ISpooferMotion plugin is not connected. Please enable the plugin in Studio.',
-      );
-    }
-  }
-
-  const port = activePort;
+async function startScanRequest(options: ScanOptions | undefined, requestId: string) {
+  const port = await findPluginBridgePort();
+  if (!port) throw new Error('Please open the desktop app and connect Roblox Studio first.');
   const previousGeneration = (await readStudioHealth()).scanGeneration ?? 0;
+  const scanTypes = options?.scanTypes ?? ['sounds', 'animations', 'images', 'meshes', 'scripts'];
+  if (scanTypes.length === 0) throw new Error('Select at least one asset type to scan.');
 
-  if (options) {
-    const optionsResponse = await fetchPluginBridge('/scan-options', port, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(options),
-    });
-    if (!optionsResponse.ok) {
-      throw new Error('Could not configure the Studio scan. Please try again.');
-    }
-  }
+  const response = await fetchPluginBridge('/request-scan', port, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requestId, scanTypes, scanPath: options?.scanPath ?? '' }),
+  });
+  if (!response.ok) throw new Error('Could not request a Studio scan.');
+  const result = (await response.json()) as { success?: boolean; error?: string };
+  if (!result.success) throw new Error(result.error || 'Could not start a Studio scan.');
+  addDebugLog('info', [
+    `Studio scan requested. Types: ${scanTypes.join(', ')}. Path: ${options?.scanPath || 'all configured services'}.`,
+  ]);
+  return { port, previousGeneration };
+}
 
-  const allTypes = options?.scanTypes ?? ['sounds', 'animations', 'images', 'meshes', 'scripts'];
-  const endpointMap: Record<string, string> = {
-    sounds: '/request-sounds',
-    animations: '/request-animations',
-    images: '/request-images',
-    meshes: '/request-meshes',
-    scripts: '/request-script-refs',
+export async function triggerStudioScan(options?: ScanOptions): Promise<void> {
+  if (activeScan) throw new Error('A Studio scan is already running.');
+  const requestId = crypto.randomUUID();
+  const session: ScanSession = {
+    requestId,
+    ready: startScanRequest(options, requestId),
+    cancelled: false,
   };
-  const endpoints = allTypes.map((t) => endpointMap[t]).filter(Boolean);
+  activeScan = session;
+  try {
+    const { previousGeneration } = await session.ready;
+    await checkCancellation(session);
+    await waitForStudioScanComplete(previousGeneration, session);
+  } finally {
+    if (activeScan === session) activeScan = null;
+  }
+}
 
-  for (const endpoint of endpoints) {
-    const startResponse = await fetchPluginBridge(endpoint, port, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{}',
-    });
-    if (!startResponse.ok) {
-      throw new Error('Could not start a Studio scan. Is the plugin connected?');
+async function sendCancellation(port: string, identity: { requestId?: string; scanId?: string }) {
+  const response = await fetchPluginBridge('/cancel-scan', port, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(identity),
+  });
+  if (!response.ok) throw new Error('Could not send scan cancellation. Try again.');
+  const result = (await response.json()) as { success?: boolean };
+  if (!result.success) throw new Error('Studio scan cancellation was rejected. Try again.');
+  addDebugLog('info', ['Studio scan cancellation accepted. Unfinished results will be discarded.']);
+}
+
+export async function cancelStudioScan(): Promise<void> {
+  const session = activeScan;
+  if (session) {
+    if (session.cancellation) return session.cancellation;
+    session.cancelled = true;
+    session.cancellation = (async () => {
+      const { port } = await session.ready;
+      await sendCancellation(port, { requestId: session.requestId });
+    })();
+    try {
+      await session.cancellation;
+    } catch (error) {
+      session.cancelled = false;
+      session.cancellation = undefined;
+      throw error;
     }
+    return;
   }
 
-  await waitForStudioScanComplete(previousGeneration);
+  const port = await findPluginBridgePort();
+  if (!port) throw new Error('The desktop connection is unavailable.');
+  const health = await readStudioHealth();
+  if (!health.scanStatus?.scanning) return;
+  await sendCancellation(port, {
+    requestId: health.scanRequestId || undefined,
+    scanId: health.scanId || undefined,
+  });
 }

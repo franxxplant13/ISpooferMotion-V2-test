@@ -160,14 +160,24 @@ local function scanScriptSourceRecord(records: { Record }, obj: Instance)
 	addRecord(records, obj, "Source", source)
 end
 
+local SCAN_CANCELLED = {}
+
+local function checkScanCancelled()
+	if scanCancelled then
+		error(SCAN_CANCELLED)
+	end
+end
+
 local FLUSH_MAX_RETRIES: number = 10
 local FLUSH_RETRY_WAIT: number = 1.5
 
 local function flushScanRecordsOrError(records: { Record })
 	for attempt = 1, FLUSH_MAX_RETRIES do
+		checkScanCancelled()
 		if flushRecords(records) then
 			return
 		end
+		checkScanCancelled()
 		if attempt < FLUSH_MAX_RETRIES then
 			logToPlugin(
 				"[Warning] "
@@ -267,8 +277,16 @@ local function scanAssets(): ()
 	end)
 
 	activeScanId = HttpService:GenerateGUID(false)
-	local started, response =
-		postJson("/scan-start", { placeId = placeId, placeName = placeName, scanId = activeScanId })
+	local started, response = postJson("/scan-start", {
+		placeId = placeId,
+		placeName = placeName,
+		scanId = activeScanId,
+		requestId = activeScanRequestId,
+	})
+	if response and response.cancelled then
+		scanCancelled = true
+	end
+	checkScanCancelled()
 	if not started or (response and response.success == false) then
 		pcall(function()
 			postJson("/scan-abort", { scanId = activeScanId })
@@ -285,6 +303,30 @@ local function scanAssets(): ()
 	local processed = 0
 	local lastYieldTime = os.clock()
 	local lastProgressTime = 0
+	local scanStartedAt = os.clock()
+
+	local function reportProgress(service, obj, phase)
+		local fullName = service
+		if obj then
+			pcall(function()
+				fullName = obj:GetFullName()
+			end)
+		end
+		local ok, result = postJson("/scan-progress", {
+			scanId = activeScanId,
+			scanning = true,
+			current_service = service,
+			current_object = fullName,
+			scanned = processed,
+			found = captured + #records,
+			phase = phase,
+			elapsed_seconds = math.floor(os.clock() - scanStartedAt),
+		})
+		if ok and result and (result.cancelled or result.superseded) then
+			scanCancelled = true
+		end
+		checkScanCancelled()
+	end
 
 	local stack: { { obj: Instance, currentService: string } } = {}
 
@@ -327,6 +369,7 @@ local function scanAssets(): ()
 	end
 
 	while #stack > 0 do
+		checkScanCancelled()
 		local current = table.remove(stack)
 		local obj = current.obj
 		local currentService = current.currentService
@@ -335,21 +378,15 @@ local function scanAssets(): ()
 		processScannedObject(records, obj)
 
 		if #records >= SEND_CHUNK_SIZE or getPendingRecordBytes() >= SCAN_CHUNK_BYTES then
+			reportProgress(currentService, obj, "Sending records")
 			captured += #records
 			flushScanRecordsOrError(records)
 		end
 
 		local now = os.clock()
-		if now - lastProgressTime >= 0.25 then
-			pcall(function()
-				postJson("/scan-progress", {
-					scanId = activeScanId,
-					scanning = true,
-					current_service = currentService,
-					scanned = processed,
-				})
-			end)
-			lastProgressTime = now
+		if now - lastProgressTime >= 1 then
+			reportProgress(currentService, obj, "Scanning")
+			lastProgressTime = os.clock()
 		end
 
 		if now - lastYieldTime >= 0.012 then
@@ -367,11 +404,14 @@ local function scanAssets(): ()
 		end
 	end
 
+	reportProgress("Scan complete", nil, "Sending final records")
 	captured += #records
 	flushScanRecordsOrError(records)
+	reportProgress("Scan complete", nil, "Analyzing results")
 
 	local completeOk, completion = false, nil
 	for _ = 1, 20 do
+		checkScanCancelled()
 		completeOk, completion = postJson("/scan-complete", { scanId = activeScanId })
 		if completeOk and completion and completion.ok == true then
 			break
@@ -381,6 +421,7 @@ local function scanAssets(): ()
 		end
 		task.wait(1)
 	end
+	checkScanCancelled()
 	if not completeOk or not completion or completion.ok ~= true then
 		error("Could not finalize Studio scan")
 	end
@@ -440,6 +481,7 @@ local function scan(): ()
 	end
 
 	scanRunning = true
+	scanCancelled = false
 	local ok, err = pcall(scanAssets)
 	scanRunning = false
 
@@ -449,8 +491,14 @@ local function scan(): ()
 		pcall(function()
 			postJson("/scan-abort", { scanId = activeScanId })
 		end)
-		logToPlugin("[Warning] " .. "[ISpooferMotion] Scan failed: " .. tostring(err))
-		setPluginGuiStatus("Scan Failed. Waiting for scan or replacements...")
+		if err == SCAN_CANCELLED then
+			logToPlugin("[ISpooferMotion] Scan cancelled. Partial results discarded.")
+			setPluginGuiStatus("Scan cancelled. Ready for a new scan.")
+		else
+			logToPlugin("[Warning] " .. "[ISpooferMotion] Scan failed: " .. tostring(err))
+			setPluginGuiStatus("Scan Failed. Waiting for scan or replacements...")
+		end
 	end
 	activeScanId = nil
+	activeScanRequestId = nil
 end

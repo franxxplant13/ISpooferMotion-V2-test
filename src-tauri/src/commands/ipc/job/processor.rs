@@ -68,7 +68,7 @@ impl JobContext {
         let _ = self.app.emit(
             "spoofer-log",
             serde_json::json!({
-                "message": msg,
+                "message": redact_log_message(msg),
                 "level": level
             }),
         );
@@ -934,20 +934,12 @@ pub async fn process_spoofer_action(
                     Ok(res) => {
                         ctx.fail_count.fetch_add(1, Ordering::Relaxed);
                         let err_msg = res.error.unwrap_or_default();
-                        let is_upstream_inaccessible = err_msg.contains("Permission Denied") || err_msg.contains("Asset is private") || err_msg.contains("copylocked") || err_msg.contains("Conflict: Asset delivery blocked") || err_msg.contains("Not Found: Asset");
-                        let (level, msg) = if is_upstream_inaccessible {
-                            let reason = if err_msg.contains("Not Found") {
-                                "asset or place is deleted or invalid"
-                            } else if err_msg.contains("Conflict") {
-                                "your account or forced Place ID doesn't have access"
-                            } else {
-                                "private, copylocked, or from a deleted place"
-                            };
-                            ("warn", format!("Skipped {asset_id} ({reason})."))
+                        let reason = if err_msg.is_empty() {
+                            "The downloader returned no failure details.".to_string()
                         } else {
-                            ("error", format!("Download failed for {asset_id}: {err_msg}"))
+                            err_msg.clone()
                         };
-                        ctx.log(&msg, level);
+                        ctx.log(&format!("Download failed for {asset_id} ({exact_name}): {reason}"), "error");
                         ctx.record_result(serde_json::json!({ "id": asset_id, "name": exact_name, "type": asset_type, "success": false, "stage": "download", "errorReason": err_msg }));
                     }
                     Err(e) => {
@@ -955,9 +947,9 @@ pub async fn process_spoofer_action(
                         let raw = e.to_string();
 
                         let human = if raw.contains("error decoding response body") {
-                            "Roblox cut the connection mid-download (or sent a corrupt/gzipped body). Retries didn't recover -- try again in a moment.".to_string()
+                            "Could not decode the download response body.".to_string()
                         } else if raw.contains("timed out") || raw.contains("timeout") {
-                            "Download timed out. Roblox is likely rate-limiting or slow -- try again shortly.".to_string()
+                            "Download timed out. The server did not respond within the allowed time.".to_string()
                         } else if raw.contains("ConnectionReset") || raw.contains("connection reset") {
                             "Roblox reset the connection during download. Usually transient.".to_string()
                         } else if raw.contains("dns error") {
@@ -965,7 +957,7 @@ pub async fn process_spoofer_action(
                         } else {
                             raw.clone()
                         };
-                        ctx.log(&format!("Download error for {asset_id}: {human}"), "error");
+                        ctx.log(&format!("Download error for {asset_id} ({exact_name}): {human} Details: {raw}"), "error");
                         ctx.record_result(serde_json::json!({ "id": asset_id, "name": exact_name, "type": asset_type, "success": false, "stage": "download", "errorReason": raw }));
                     }
                 }

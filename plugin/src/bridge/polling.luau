@@ -215,6 +215,7 @@ local function operationBusy(): boolean
 end
 
 local function startRequestedScan(decoded: any)
+	activeScanRequestId = decoded.requestId
 	if type(decoded.scanTypes) == "table" then
 		activeScanTypes = decoded.scanTypes
 	end
@@ -344,6 +345,22 @@ function startPolling(): ()
 				else
 					pollFailureStreak = 0
 					if type(decoded) == "table" then
+						if
+							(decoded.cancelScanId and decoded.cancelScanId == activeScanId)
+							or (
+								decoded.cancelRequestId
+								and decoded.cancelRequestId == activeScanRequestId
+							)
+						then
+							scanCancelled = true
+						end
+						if
+							deferredScanRequest
+							and decoded.cancelRequestId
+							and deferredScanRequest.requestId == decoded.cancelRequestId
+						then
+							deferredScanRequest = nil
+						end
 						if decoded.batchSize and type(setPluginBatchSize) == "function" then
 							setPluginBatchSize(decoded.batchSize)
 						end

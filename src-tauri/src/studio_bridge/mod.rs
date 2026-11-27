@@ -23,7 +23,7 @@ use tower_http::{
 
 use middleware::require_json_for_post;
 use server::{
-    get_last_animations, get_last_images, get_last_meshes, get_last_script_refs, get_last_sounds,
+    cancel_scan, request_scan, get_last_animations, get_last_images, get_last_meshes, get_last_script_refs, get_last_sounds,
     handle_animations_complete, handle_api_dump, handle_assets_animations, handle_assets_images,
     handle_assets_meshes, handle_assets_script_refs, handle_assets_sounds, handle_images_complete,
     handle_meshes_complete, handle_patch_progress, handle_patch_results, handle_poll,
@@ -196,6 +196,8 @@ pub async fn start_server(app_handle: AppHandle) {
         .route("/studio-health", get(handle_studio_health))
         .route("/api-dump", get(handle_api_dump))
         .route("/poll", get(handle_poll))
+        .route("/request-scan", post(request_scan))
+        .route("/cancel-scan", post(cancel_scan))
         .route("/scan-start", post(handle_scan_start))
         .route("/scan-progress", post(handle_scan_progress))
         .route("/scan-records", post(handle_scan_records))
@@ -444,6 +446,8 @@ pub async fn get_studio_health_status() -> AnyValue {
         "synced": synced,
         "protocolVersion": STUDIO_PROTOCOL_VERSION,
         "scanStatus": guard.scan_status,
+        "scanRequestId": guard.scan_request_id,
+        "scanId": guard.scan_id,
         "scanGeneration": guard.scan_generation,
         "completedScanGeneration": guard.completed_scan_generation,
         "abortedScanGeneration": guard.aborted_scan_generation,

@@ -1,4 +1,5 @@
 pub mod api;
+mod errors;
 pub mod resolution;
 pub mod types;
 pub mod validation;
@@ -319,7 +320,7 @@ pub async fn download_animation_asset_with_progress(
                 let download_resp = match send_result {
                     Ok(Ok(resp)) => resp,
                     Ok(Err(error)) => {
-                        last_error = format!("Download request failed: {error}");
+                        last_error = format!("Download request failed: {}", errors::request_error_details(error));
                         if attempt < 2 {
                             tokio::time::sleep(Duration::from_millis(1000 * (attempt + 1))).await;
                             continue;
@@ -384,9 +385,12 @@ pub async fn download_animation_asset_with_progress(
                     }
                 }
 
-                let mut status_reason = status.to_string();
+                let retry_after_ms = crate::utils::extract_retry_after(&download_resp, None)
+                    .unwrap_or_else(|| 800 * (attempt + 1));
+                let details = errors::read_download_failure(download_resp).await;
+                let mut status_reason = format!("HTTP {status}. Roblox response: {details}");
                 if status == reqwest::StatusCode::UNAUTHORIZED {
-                    let error_msg = "Your Roblox session cookie is invalid or expired. Please sign in again or update your .ROBLOSECURITY cookie.".to_string();
+                    let error_msg = format!("Authentication rejected (HTTP {status}). Roblox response: {details}");
                     emit_transfer_update(
                         &app,
                         TransferUpdate {
@@ -409,13 +413,12 @@ pub async fn download_animation_asset_with_progress(
                     });
                 } else if status == reqwest::StatusCode::FORBIDDEN {
                     status_reason =
-                        "Permission Denied: Asset is private, copylocked, or belongs to a restricted universe."
-                            .to_string();
+                        format!("Permission Denied (HTTP {status}). Roblox response: {details}");
                 } else if status == reqwest::StatusCode::NOT_FOUND {
-                    status_reason = "Not Found: The asset or referenced place does not exist or has been removed.".to_string();
+                    status_reason = format!("Not Found (HTTP {status}). Roblox response: {details}");
                 } else if status == reqwest::StatusCode::CONFLICT {
                     status_reason =
-                        "Conflict: Roblox asset delivery was blocked for this asset.".to_string();
+                        format!("Conflict (HTTP {status}). Roblox response: {details}");
                 }
 
                 let _ = crate::commands::ipc::append_log_entry(
@@ -439,8 +442,6 @@ pub async fn download_animation_asset_with_progress(
                 }
 
                 if is_retryable_download_status(status) && attempt < 2 {
-                    let retry_after_ms = crate::utils::extract_retry_after(&download_resp, None)
-                        .unwrap_or_else(|| 800 * (attempt + 1));
                     if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
                         if let Some(ref fallbacks) = fallback_cookies {
                             let mut current_idx = 0;

@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { addDebugLog } from '../utils/debugLogger';
 import { findPluginBridgePort } from '../utils/pluginBridge';
 
 export interface ScanStatus {
@@ -8,6 +9,9 @@ export interface ScanStatus {
   current_service: string;
   scanned: number;
   total: number;
+  found?: number;
+  current_object?: string;
+  phase?: string;
 }
 
 const STUDIO_PLACE_ID_CACHE_KEY = 'ISpooferMotion_LastStudioPlaceId';
@@ -75,7 +79,10 @@ export function useStudioConnection() {
                 prev.scanning === next.scanning &&
                 prev.scanned === next.scanned &&
                 prev.total === next.total &&
-                prev.current_service === next.current_service
+                prev.current_service === next.current_service &&
+                prev.found === next.found &&
+                prev.current_object === next.current_object &&
+                prev.phase === next.phase
               ) {
                 return prev;
               }
@@ -148,6 +155,28 @@ export function useStudioConnection() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
+
+  const lastScanLog = useRef({ time: 0, scanned: -1, phase: '' });
+  useEffect(() => {
+    if (!scanStatus?.scanning) {
+      lastScanLog.current = { time: 0, scanned: -1, phase: '' };
+      return;
+    }
+    const now = Date.now();
+    const previous = lastScanLog.current;
+    const phase = scanStatus.phase || 'Scanning';
+    if (now - previous.time < 2000 && previous.phase === phase) return;
+    if (
+      scanStatus.scanned === previous.scanned &&
+      phase === previous.phase &&
+      now - previous.time < 10000
+    )
+      return;
+    addDebugLog('info', [
+      `Studio scan · ${phase} · ${scanStatus.current_object || scanStatus.current_service} · ${scanStatus.scanned.toLocaleString()} objects checked · ${scanStatus.found ?? 0} reference records captured`,
+    ]);
+    lastScanLog.current = { time: now, scanned: scanStatus.scanned, phase };
+  }, [scanStatus]);
 
   return useMemo(
     () => ({ studioConnected, scanStatus, studioPlaceId, studioPlaceName }),

@@ -28,6 +28,8 @@ pub async fn handle_studio_health(State(state): State<AppState>) -> Json<Value> 
         "synced": synced,
         "protocolVersion": STUDIO_PROTOCOL_VERSION,
         "scanStatus": guard.scan_status,
+        "scanRequestId": guard.scan_request_id,
+        "scanId": guard.scan_id,
         "scanGeneration": guard.scan_generation,
         "completedScanGeneration": guard.completed_scan_generation,
         "abortedScanGeneration": guard.aborted_scan_generation,
@@ -42,6 +44,14 @@ pub async fn handle_scan_start(
     Json(payload): Json<Value>,
 ) -> Json<Value> {
     let mut guard = state.data.write().await;
+    if let Some(request_id) = payload.get("requestId").and_then(Value::as_str) {
+        if guard.scan_request_id.as_deref() != Some(request_id)
+            || guard.cancelled_scan_request_id.as_deref() == Some(request_id)
+        {
+            return Json(serde_json::json!({"success": false, "cancelled": true}));
+        }
+    }
+    guard.scan_request_id = payload.get("requestId").and_then(Value::as_str).map(String::from);
     guard.last_plugin_poll_time = Some(Instant::now());
     guard.scan_id = payload
         .get("scanId")
@@ -98,7 +108,7 @@ pub async fn handle_scan_progress(
         || guard.scan_status.is_none()
         || guard.scan_completion_in_progress
     {
-        return Json(serde_json::json!({"success": false, "superseded": true}));
+        return Json(serde_json::json!({"success": false, "superseded": true, "cancelled": true}));
     }
     guard.last_plugin_poll_time = Some(Instant::now());
     if let Some(obj) = payload.as_object_mut() {
@@ -122,7 +132,7 @@ pub async fn handle_scan_records(
             || guard.scan_status.is_none()
             || guard.scan_completion_in_progress
         {
-            return Json(serde_json::json!({"success": false, "superseded": true}));
+            return Json(serde_json::json!({"success": false, "superseded": true, "cancelled": true}));
         }
     }
 
@@ -140,7 +150,7 @@ pub async fn handle_scan_records(
         || guard.scan_status.is_none()
         || guard.scan_completion_in_progress
     {
-        return Json(serde_json::json!({"success": false, "superseded": true}));
+        return Json(serde_json::json!({"success": false, "superseded": true, "cancelled": true}));
     }
     guard.last_plugin_poll_time = Some(Instant::now());
     if let Some(chunk_id) = payload.get("chunkId").and_then(Value::as_u64) {
@@ -211,6 +221,9 @@ pub async fn handle_scan_complete(
             return Json(serde_json::json!({"ok": false, "inProgress": true}));
         }
         guard.scan_completion_in_progress = true;
+        if let Some(status) = guard.scan_status.as_mut().and_then(Value::as_object_mut) {
+            status.insert("phase".to_string(), Value::String("Analyzing results".to_string()));
+        }
         guard.last_plugin_poll_time = Some(Instant::now());
         let extracted_records = std::mem::take(
             &mut *guard
@@ -341,17 +354,7 @@ pub async fn handle_scan_complete(
     Json(completion)
 }
 
-pub async fn handle_scan_abort(
-    State(state): State<AppState>,
-    Json(payload): Json<Value>,
-) -> Json<Value> {
-    let mut guard = state.data.write().await;
-    if !belongs_to_scan(&guard, &payload)
-        || guard.scan_generation == 0
-        || guard.completed_scan_generation >= guard.scan_generation
-    {
-        return Json(serde_json::json!({"success": false, "superseded": true}));
-    }
+fn abort_scan(guard: &mut super::messages::AssetServerStateData, state: &AppState) {
     guard.scan_status = None;
     guard.aborted_scan_generation = guard.scan_generation;
     guard.scan_completion_in_progress = false;
@@ -378,6 +381,84 @@ pub async fn handle_scan_abort(
         guard.stored_patches.clear();
     }
 
+}
+
+pub async fn request_scan(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let Some(request_id) = body.get("requestId").and_then(Value::as_str)
+        .filter(|id| !id.is_empty() && id.len() <= 64) else {
+        return Json(serde_json::json!({"success": false, "error": "Missing scan request ID"}));
+    };
+    let types: Vec<String> = body.get("scanTypes").and_then(Value::as_array)
+        .into_iter().flatten().filter_map(Value::as_str)
+        .filter(|kind| matches!(*kind, "sounds" | "animations" | "images" | "meshes" | "scripts"))
+        .map(String::from).collect();
+    if types.is_empty() {
+        return Json(serde_json::json!({"success": false, "error": "Select at least one scan type"}));
+    }
+    let mut guard = state.data.write().await;
+    if guard.scan_status.is_some() {
+        return Json(serde_json::json!({"success": false, "error": "A Studio scan is already running"}));
+    }
+    guard.scan_types = types;
+    guard.scan_path = body.get("scanPath").and_then(Value::as_str)
+        .map(str::trim).filter(|path| !path.is_empty()).map(String::from);
+    guard.scan_request_id = Some(request_id.to_string());
+    guard.request_sounds = true;
+    guard.scan_status = Some(serde_json::json!({
+        "scanning": true, "current_service": "Waiting for Studio",
+        "phase": "Waiting for Studio", "scanned": 0, "found": 0
+    }));
+    guard.notify.notify_waiters();
+    Json(serde_json::json!({"success": true}))
+}
+
+pub async fn cancel_scan(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Json<Value> {
+    let mut guard = state.data.write().await;
+    if let Some(request_id) = body.get("requestId").and_then(Value::as_str) {
+        if guard.scan_request_id.as_deref() != Some(request_id) {
+            return Json(serde_json::json!({"success": true, "superseded": true}));
+        }
+    } else if let Some(scan_id) = body.get("scanId").and_then(Value::as_str) {
+        if guard.scan_id.as_deref() != Some(scan_id) {
+            return Json(serde_json::json!({"success": true, "superseded": true}));
+        }
+    } else {
+        return Json(serde_json::json!({"success": false, "error": "Missing scan identity"}));
+    }
+    if guard.scan_status.is_none() {
+        return Json(serde_json::json!({"success": true, "finished": true}));
+    }
+    guard.cancelled_scan_id = guard.scan_id.take();
+    guard.cancelled_scan_request_id = guard.scan_request_id.take();
+    guard.request_sounds = false;
+    guard.request_animations = false;
+    guard.request_images = false;
+    guard.request_meshes = false;
+    guard.request_script_refs = false;
+    abort_scan(&mut guard, &state);
+    guard.studio_records = std::sync::Arc::new(Vec::new());
+    guard.notify.notify_waiters();
+    Json(serde_json::json!({"success": true}))
+}
+
+pub async fn handle_scan_abort(
+    State(state): State<AppState>,
+    Json(payload): Json<Value>,
+) -> Json<Value> {
+    let mut guard = state.data.write().await;
+    if !belongs_to_scan(&guard, &payload)
+        || guard.scan_generation == 0
+        || guard.completed_scan_generation >= guard.scan_generation
+    {
+        return Json(serde_json::json!({"success": false, "superseded": true, "cancelled": true}));
+    }
+    abort_scan(&mut guard, &state);
     Json(serde_json::json!({"success": true}))
 }
 
@@ -434,9 +515,20 @@ pub async fn handle_poll(
                 let batch_size = guard.batch_size;
                 return Json(serde_json::json!({
                     "requestAssets": true,
+                    "requestId": guard.scan_request_id,
+                    "cancelScanId": guard.cancelled_scan_id,
+                    "cancelRequestId": guard.cancelled_scan_request_id,
                     "scanTypes": scan_types,
                     "scanPath": scan_path,
                     "batchSize": batch_size,
+                }));
+            }
+            if guard.cancelled_scan_id.is_some() || guard.cancelled_scan_request_id.is_some() {
+                return Json(serde_json::json!({
+                    "requestAssets": false,
+                    "cancelScanId": guard.cancelled_scan_id,
+                    "cancelRequestId": guard.cancelled_scan_request_id,
+                    "batchSize": guard.batch_size
                 }));
             }
         }

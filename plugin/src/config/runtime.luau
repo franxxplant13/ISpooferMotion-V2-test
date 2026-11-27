@@ -35,6 +35,8 @@ BASE_URL = nil
 polling = false
 
 local activeScanId: string? = nil
+local activeScanRequestId: string? = nil
+local scanCancelled = false
 local scanChunkId: number = 0
 local scanRunning = false
 local patchRunning = false

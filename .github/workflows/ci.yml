@@ -88,7 +88,7 @@ jobs:
       - run: bun run build:plugin
       - run: bun run rust:check
       - run: bun run rust:lint
-      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib cleanup -- --test-threads=1
+      - run: cargo test --manifest-path src-tauri/Cargo.toml --lib -- --test-threads=1
 
   windows-release:
     name: Build Windows installer (manual updates)

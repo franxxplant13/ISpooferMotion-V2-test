@@ -81,6 +81,7 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
   config,
   selectedAssetIds,
   selectedAssetKeys,
+  highlightedRows,
   toggleAsset,
   toggleNode,
   getAllAssetIds,
@@ -99,6 +100,7 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
   config: AppConfig;
   selectedAssetIds: Set<string>;
   selectedAssetKeys?: Set<string>;
+  highlightedRows: Set<string>;
   toggleAsset: (assetOrKey: ParsedAssetRef | string, checked: boolean) => void;
   toggleNode: (node: RbxInstance, checked: boolean) => void;
   getAllAssetIds: (node: RbxInstance) => string[];
@@ -248,9 +250,11 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
       <div
         className={cn(
           'h-7 rounded-sm hover:bg-accent/60 group transition-colors flex items-center pr-2 cursor-pointer select-none',
-          isSelected && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
+          highlightedRows.has(`asset:${assetKey}`) &&
+            'bg-blue-600/30 ring-1 ring-inset ring-blue-400/70',
           isInspected && 'bg-primary/15 font-semibold',
         )}
+        data-select-row={`asset:${assetKey}`}
         style={{ paddingLeft: `${level * 16 + 20}px` }}
         onClick={handleRowClick}
         onMouseEnter={() => {
@@ -464,14 +468,16 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
       <div
         className={cn(
           'flex items-center py-1 px-1 hover:bg-accent/40 cursor-pointer rounded-sm group select-none transition-colors',
-          isChecked && 'bg-primary/10 ring-1 ring-inset ring-primary/30',
+          highlightedRows.has(`node:${node.referent}`) &&
+            'bg-blue-600/30 ring-1 ring-inset ring-blue-400/70',
           isInspected && 'bg-primary/15 font-semibold',
         )}
+        data-select-row={`node:${node.referent}`}
         style={{ paddingLeft: `${level * 16}px` }}
         onClick={handleNodeClick}
       >
         <div
-          className="mr-2 cursor-pointer flex items-center justify-center shrink-0"
+          className="mr-2 cursor-pointer flex items-center justify-center shrink-0 checkbox-trigger"
           onMouseDown={(event: React.MouseEvent) => {
             event.stopPropagation();
             isDragSelecting = true;
@@ -702,6 +708,7 @@ export const ExplorerTreeNode = memo(function ExplorerTreeNode({
               level={level + 1}
               config={config}
               selectedAssetIds={selectedAssetIds}
+              highlightedRows={highlightedRows}
               selectedAssetKeys={selectedAssetKeys}
               toggleAsset={toggleAsset}
               toggleNode={toggleNode}

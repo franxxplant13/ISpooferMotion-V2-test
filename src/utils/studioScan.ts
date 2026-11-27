@@ -7,7 +7,7 @@ const SCAN_STALL_MS = 300_000;
 const SCAN_POLL_MS = 1500;
 
 interface StudioHealth {
-  scanStatus?: { scanning?: boolean; scanned?: number } | null;
+  scanStatus?: { scanning?: boolean; scanned?: number; phase?: string } | null;
   synced?: boolean;
   scanGeneration?: number;
   completedScanGeneration?: number;
@@ -66,7 +66,7 @@ async function waitForStudioScanComplete(
       );
     }
     if ((health.scanGeneration ?? 0) <= previousGeneration) {
-      if (now - startedAt > 20000) {
+      if (health.scanStatus?.phase !== 'Queued in Studio' && now - startedAt > 20000) {
         throw new Error(
           'Studio did not start the requested scan. Please check the plugin and retry.',
         );

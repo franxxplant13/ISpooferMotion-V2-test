@@ -292,9 +292,8 @@ pub async fn fetch_animation_xml(
     cookie: Option<String>,
     place_id: Option<String>,
 ) -> crate::error::Result<Option<String>> {
-    let anim_cache_file = if let Ok(app_dir) = app.path().app_data_dir() {
-        let anim_dir = app_dir.join("downloads").join("animations");
-        let _ = tokio::fs::create_dir_all(&anim_dir).await;
+    let anim_cache_file = if let Ok(cache) = app.path().app_cache_dir() {
+        let anim_dir = cache.join("animation_previews");
         let file_path = anim_dir.join(format!("{asset_id}.xml"));
         if file_path.exists() {
             if let Ok(cached_xml) = tokio::fs::read_to_string(&file_path).await {
@@ -355,6 +354,7 @@ pub async fn fetch_animation_xml(
 
     if let Some(ref xml) = parsed_xml {
         if let Some(file_path) = anim_cache_file {
+            if let Some(parent) = file_path.parent() { let _ = tokio::fs::create_dir_all(parent).await; }
             let _ = tokio::fs::write(file_path, xml).await;
         }
     }

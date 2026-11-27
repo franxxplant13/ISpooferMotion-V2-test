@@ -95,7 +95,7 @@ pub async fn write_download_response(
     asset_type: Option<String>,
     resume_offset: u64,
 ) -> crate::error::Result<DownloadResult> {
-    if file_path.contains("..") {
+    if std::path::Path::new(&file_path).components().any(|part| part == std::path::Component::ParentDir) {
         return Err("Invalid file path: path traversal detected.".into());
     }
 

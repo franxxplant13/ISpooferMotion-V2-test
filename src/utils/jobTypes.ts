@@ -7,6 +7,7 @@ interface SpoofJobAssetResult {
   stage?: 'download' | 'upload';
   errorReason?: string;
   newId?: string;
+  filePath?: string;
   skipped?: boolean;
   reason?: string;
 }
@@ -30,6 +31,8 @@ export interface SpoofJob {
   assetResults: SpoofJobAssetResult[];
   config: SpoofJobConfig;
   logFilePath?: string;
+  downloadFolder?: string;
+  savedFiles?: number;
 }
 
 export interface PendingSpoofRetry {

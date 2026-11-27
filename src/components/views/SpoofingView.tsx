@@ -76,7 +76,7 @@ type ApiKeyOwnerDetectResult = {
 
 export default function SpoofingView() {
   const { t } = useLanguage();
-  const { studioPlaceId } = useStudioConnectionState();
+  const { studioPlaceId, studioPlaceName } = useStudioConnectionState();
   const { config, updateConfig, updateCategory } = useConfig();
 
   const {
@@ -453,7 +453,7 @@ export default function SpoofingView() {
       logIsm('error', `Studio scan failed: ${String(error)}`, true);
       setLogs((prev) => appendSpoofingLog(prev, `[ERROR] Studio scan failed: ${String(error)}\n`));
     } finally {
-      setTimeout(() => setIsScanningStudio(false), 600);
+      setIsScanningStudio(false);
     }
   };
 
@@ -784,7 +784,11 @@ export default function SpoofingView() {
         groupId: selectedGroup !== 'none' ? selectedGroup : null,
         spoofSounds,
         downloadPath: config.spoofing.downloadPath,
-        placeName: runContext?.placeName || loadedFileName,
+        placeName:
+          runContext?.placeName ||
+          (rootInstances.some((node) => node.referent === 'studio-root')
+            ? studioPlaceName?.trim() || (studioPlaceId ? `Place ${studioPlaceId}` : 'Studio')
+            : loadedFileName),
         concurrent: config.advanced.concurrentSpoofing,
         concurrentDownloading: config.advanced.concurrentDownloading,
         maxConcurrency: config.advanced.maxConcurrency,

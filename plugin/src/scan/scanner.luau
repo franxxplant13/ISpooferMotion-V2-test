@@ -483,7 +483,6 @@ local function scan(): ()
 	scanRunning = true
 	scanCancelled = false
 	local ok, err = pcall(scanAssets)
-	scanRunning = false
 
 	if not ok then
 		resetObjectRegistry()
@@ -501,4 +500,5 @@ local function scan(): ()
 	end
 	activeScanId = nil
 	activeScanRequestId = nil
+	scanRunning = false
 end

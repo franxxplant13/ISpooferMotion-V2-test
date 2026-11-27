@@ -71,6 +71,7 @@ macro_rules! specta_commands {
             crate::commands::jobs::get_jobs,
             crate::commands::jobs::delete_job,
             crate::commands::jobs::open_job_log,
+            crate::commands::jobs::open_download_session,
             crate::commands::resolver::resolve_asset_creators,
             crate::commands::resolver::resolve_script_references,
             crate::commands::resolver::validate_asset_ids,

@@ -104,6 +104,16 @@ pub async fn handle_scan_progress(
     Json(mut payload): Json<Value>,
 ) -> Json<Value> {
     let mut guard = state.data.write().await;
+    if let Some(request_id) = payload.get("queuedRequestId").and_then(Value::as_str) {
+        let current = guard.scan_request_id.as_deref() == Some(request_id);
+        if current {
+            if let Some(status) = guard.scan_status.as_mut().and_then(Value::as_object_mut) {
+                status.insert("phase".into(), Value::String("Queued in Studio".into()));
+                status.insert("current_service".into(), Value::String("Waiting for the previous operation to finish".into()));
+            }
+        }
+        return Json(serde_json::json!({"success": current, "cancelled": !current}));
+    }
     if !belongs_to_scan(&guard, &payload)
         || guard.scan_status.is_none()
         || guard.scan_completion_in_progress

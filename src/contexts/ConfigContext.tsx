@@ -155,6 +155,9 @@ export const ConfigProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (e.payload.error) {
           level = 'error';
           message = `Spoofing job stopped: ${e.payload.error}`;
+        } else if (e.payload.downloadOnly) {
+          level = failed ? 'error' : 'success';
+          message = `Download finished. ${e.payload.savedFiles ?? 0} files saved, ${skipped} skipped, ${failed} failed. See Activity for the folder.`;
         } else if (failed === 0 && total > 0) {
           level = 'success';
           message = `Spoofing finished! All ${total} asset(s) were successfully uploaded in ${durationSec}s (${avgMsPerAsset}ms/asset${skipped ? `, ${skipped} skipped` : ''}).`;

@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { open } from '@tauri-apps/plugin-dialog';
 import {
   CheckCircle2,
   Clock,
@@ -20,7 +21,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '..
 export default function ActivityView() {
   const { t } = useLanguage();
 
-  const { updateConfig } = useConfig();
+  const { config, updateConfig } = useConfig();
   const [jobs, setJobs] = useState<SpoofJob[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -94,8 +95,26 @@ export default function ActivityView() {
   };
 
   return (
-    <div className="w-full h-full">
-      <div className="w-full h-full flex flex-col">
+    <div className="flex h-full w-full flex-col">
+      <div className="flex shrink-0 flex-wrap items-center gap-3 px-5 pt-3 text-xs">
+        <button
+          className="rounded border px-3 py-2"
+          onClick={async () => {
+            try {
+              const path = await open({ directory: true, title: 'Choose download folder' });
+              if (typeof path === 'string') updateConfig('spoofing', 'downloadPath', path);
+            } catch (error) {
+              logIsm('error', String(error), true);
+            }
+          }}
+        >
+          Choose download folder
+        </button>
+        <span className="select-text break-all">
+          {config.spoofing.downloadPath || 'Default app downloads folder'}
+        </span>
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6">
           {isLoading ? (
             <div className="flex items-center justify-center h-full">
@@ -198,6 +217,20 @@ export default function ActivityView() {
                               )}
                             </button>
                           )}
+                          {job.downloadFolder && (
+                            <button
+                              className="text-xs text-primary"
+                              onClick={async () => {
+                                try {
+                                  await invoke('open_download_session', { jobId: job.id });
+                                } catch (error) {
+                                  logIsm('error', String(error), true);
+                                }
+                              }}
+                            >
+                              Open session folder ({job.savedFiles} files)
+                            </button>
+                          )}
                           {job.logFilePath && (
                             <button
                               type="button"
@@ -218,6 +251,9 @@ export default function ActivityView() {
                           </button>
                         </div>
 
+                        {job.downloadFolder && (
+                          <p className="select-text break-all text-xs mb-2">{job.downloadFolder}</p>
+                        )}
                         <div className="space-y-1 max-h-72 overflow-y-auto pr-1 rounded-lg border border-border-subtle/50 p-2 bg-bg-base/50">
                           {job.assetResults?.map((res, i) => (
                             <div

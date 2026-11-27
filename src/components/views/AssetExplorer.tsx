@@ -770,6 +770,47 @@ export default function AssetExplorer({
     return map;
   }, [displayedInstances]);
 
+  const [highlightedRows, setHighlightedRows] = useState<Set<string>>(new Set());
+  const anchor = useRef('');
+  const drag = useRef<{ rows: string[]; start: number; base: Set<string>; moved: boolean } | null>(
+    null,
+  );
+  const suppressClick = useRef(false);
+
+  function highlightRange(to: string) {
+    const selection = drag.current;
+    if (!selection) return;
+    const end = selection.rows.indexOf(to);
+    if (end < 0) return;
+    const first = Math.min(end, selection.start);
+    const last = Math.max(end, selection.start);
+    setHighlightedRows(new Set([...selection.base, ...selection.rows.slice(first, last + 1)]));
+  }
+
+  function applyHighlighted(checked: boolean) {
+    const keys = new Set(useSpooferStore.getState().selectedAssetKeys);
+    const visit = (node: RbxInstance, parentSelected: boolean) => {
+      const selected = parentSelected || highlightedRows.has(`node:${node.referent}`);
+      for (const asset of node.assets) {
+        if (
+          activeAssetFilters.length &&
+          asset.type !== 'ghost' &&
+          !activeAssetFilters.includes(asset.type)
+        )
+          continue;
+        const key = getAssetKey(asset);
+        if (selected || highlightedRows.has(`asset:${key}`)) {
+          if (checked) keys.add(key);
+          else keys.delete(key);
+        }
+      }
+      node.children.forEach((child) => visit(child, selected));
+    };
+    displayedInstances.forEach((node) => visit(node, false));
+    const ids = new Set([...keys].map((key) => key.split(':').pop() || key));
+    useSpooferStore.setState({ selectedAssetIds: ids, selectedAssetKeys: keys });
+  }
+
   return (
     <div className="h-full bg-background flex flex-col shrink-0 overflow-hidden relative w-full border-l-0">
       {isDragOver && (
@@ -1101,8 +1142,88 @@ export default function AssetExplorer({
                   isRightPanelOpen ? 'w-1/2' : 'w-full border-r-0',
                 )}
               >
+                {stats.total > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 border-b border-border-subtle p-2 text-xs">
+                    <span>
+                      {highlightedRows.size
+                        ? `${highlightedRows.size} highlighted`
+                        : 'Drag rows or Shift-click a range'}
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!highlightedRows.size}
+                      onClick={() => applyHighlighted(true)}
+                    >
+                      Check selected
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!highlightedRows.size}
+                      onClick={() => applyHighlighted(false)}
+                    >
+                      Uncheck selected
+                    </Button>
+                  </div>
+                )}
                 <div
                   data-tutorial-target="explorer-tree"
+                  onMouseDownCapture={(event) => {
+                    suppressClick.current = false;
+                    drag.current = null;
+                    const target = event.target as HTMLElement;
+                    if (
+                      event.button !== 0 ||
+                      target.closest('button,input,.checkbox-trigger,[role="button"]')
+                    )
+                      return;
+                    const row = target.closest<HTMLElement>('[data-select-row]')?.dataset.selectRow;
+                    if (!row) return;
+                    const rows = Array.from(
+                      event.currentTarget.querySelectorAll<HTMLElement>('[data-select-row]'),
+                      (el) => el.dataset.selectRow!,
+                    );
+                    const origin =
+                      event.shiftKey && rows.includes(anchor.current) ? anchor.current : row;
+                    if (!event.shiftKey) anchor.current = row;
+                    const additive = event.ctrlKey || event.metaKey;
+                    drag.current = {
+                      rows,
+                      start: rows.indexOf(origin),
+                      base: additive ? new Set(highlightedRows) : new Set(),
+                      moved: false,
+                    };
+                    if (additive && !event.shiftKey && highlightedRows.has(row)) {
+                      const next = new Set(highlightedRows);
+                      next.delete(row);
+                      setHighlightedRows(next);
+                    } else highlightRange(row);
+                    suppressClick.current = event.shiftKey || additive;
+                  }}
+                  onMouseOverCapture={(event) => {
+                    if (!(event.buttons & 1) || !drag.current) return;
+                    const row = (event.target as HTMLElement).closest<HTMLElement>(
+                      '[data-select-row]',
+                    )?.dataset.selectRow;
+                    if (
+                      row &&
+                      (drag.current.moved || row !== drag.current.rows[drag.current.start])
+                    ) {
+                      drag.current.moved = true;
+                      suppressClick.current = true;
+                      highlightRange(row);
+                    }
+                  }}
+                  onMouseUp={() => {
+                    drag.current = null;
+                  }}
+                  onClickCapture={(event) => {
+                    if (suppressClick.current) {
+                      event.stopPropagation();
+                      suppressClick.current = false;
+                    }
+                  }}
                   className="flex flex-col flex-1 p-2 overflow-y-auto scrollbar-hide"
                 >
                   {stats.total === 0 ? (
@@ -1312,6 +1433,7 @@ export default function AssetExplorer({
                         level={0}
                         config={config}
                         selectedAssetIds={selectedAssetIds}
+                        highlightedRows={highlightedRows}
                         selectedAssetKeys={selectedAssetKeys}
                         toggleAsset={toggleAsset}
                         toggleNode={toggleNode}
@@ -1782,7 +1904,7 @@ export default function AssetExplorer({
                         ? (t('spoof.runSpoofer') ?? 'Run Spoofer') + '…'
                         : config.spoofing.downloadOnly
                           ? selectedCount > 0
-                            ? `Download Selected (${selectedCount})`
+                            ? `Download Selected (${selectedAssetIds.size} IDs)`
                             : `Download All (${stats.displayed})`
                           : selectedCount > 0
                             ? `Spoof Selected (${selectedCount})`

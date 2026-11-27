@@ -21,6 +21,7 @@ struct JobContext {
     upload_types: Vec<String>,
     account_id: Option<String>,
     forced_place_ids: Vec<String>,
+    session_dir: Option<std::path::PathBuf>,
     safe_place_name: String,
     place_name_raw: String,
     base_downloads_dir: std::path::PathBuf,
@@ -642,6 +643,17 @@ pub async fn process_spoofer_action(
 
     let log_file_extracted = temp_log_file.into_inner().unwrap_or(None);
 
+    let session_dir = if is_download_only_job {
+        match super::output::create_session(&base_downloads_dir, &place_name_raw) {
+            Ok(path) => Some(path),
+            Err(error) => {
+                finish_spoofer_job(&job_id);
+                return Err(format!("Could not create download session in {}: {error}", base_downloads_dir.display()).into());
+            }
+        }
+    } else {
+        None
+    };
     let ctx = Arc::new(JobContext {
         job_id: job_id.clone(),
         cookie,
@@ -659,6 +671,7 @@ pub async fn process_spoofer_action(
         }),
         account_id: selected_account_id(&account.0),
         forced_place_ids,
+        session_dir: session_dir.clone(),
         safe_place_name,
         place_name_raw,
         base_downloads_dir: base_downloads_dir.clone(),
@@ -765,7 +778,7 @@ pub async fn process_spoofer_action(
                     _ => "Assets",
                 };
 
-                let downloads_dir = ctx.base_downloads_dir.join(&ctx.safe_place_name).join(folder_type_name);
+                let downloads_dir = ctx.session_dir.clone().unwrap_or_else(|| ctx.base_downloads_dir.join(&ctx.safe_place_name).join(folder_type_name));
                 let _ = tokio::fs::create_dir_all(&downloads_dir).await;
 
                 let file_ext = if mapped_type_name == "Audio" {
@@ -781,13 +794,17 @@ pub async fn process_spoofer_action(
 
                 let is_download_only = asset_type == "script_ref" || asset_type == "video" || !ctx.upload_types.contains(&asset_type) || asset_type == "plugin";
                 let file_name = if is_download_only {
-                    let safe_name = exact_name.replace(|c: char| !c.is_alphanumeric() && c != ' ' && c != '_' && c != '-', "_");
-                    format!("{safe_name}.{file_ext}")
+                    let safe_name = super::output::component(&exact_name);
+                    let safe_id = super::output::component(&asset_id);
+                    format!("{:04} - {safe_name} - {safe_id}.{file_ext}", i + 1)
                 } else {
                     format!("{asset_id}.{file_ext}")
                 };
 
-                let file_path = downloads_dir.join(file_name).to_string_lossy().to_string();
+                let final_path = downloads_dir.join(&file_name);
+                let file_path = if ctx.session_dir.is_some() {
+                    downloads_dir.join(format!(".partial-{}", i + 1)).to_string_lossy().into_owned()
+                } else { final_path.to_string_lossy().into_owned() };
 
                 let place_ids_for_download = if ctx.forced_place_ids.is_empty() {
                     match crate::commands::spoofer::get_asset_creator_for_asset(ctx.app.clone(), asset_id.clone(), ctx.cookie.clone()).await {
@@ -859,17 +876,24 @@ pub async fn process_spoofer_action(
                                     disc.push((asset_id.clone(), place_id));
                                 }
                             }
+                            let saved = async {
+                                let metadata = tokio::fs::metadata(&file_path).await?;
+                                if !metadata.is_file() || metadata.len() == 0 {
+                                    return Err(std::io::Error::other("Downloaded file is missing or empty"));
+                                }
+                                if ctx.session_dir.is_some() {
+                                    tokio::fs::rename(&file_path, &final_path).await?;
+                                }
+                                Ok::<_, std::io::Error>(())
+                            }.await;
+                            if let Err(error) = saved {
+                                ctx.fail_count.fetch_add(1, Ordering::Relaxed);
+                                ctx.log(&format!("Download failed for {asset_id} while saving {file_name}: {error}"), "error");
+                                ctx.record_result(serde_json::json!({"id": asset_id, "name": exact_name, "type": asset_type, "success": false, "stage": "download", "errorReason": error.to_string()}));
+                                return;
+                            }
                             ctx.success_count.fetch_add(1, Ordering::Relaxed);
-                            ctx.skip_count.fetch_add(1, Ordering::Relaxed);
-                            ctx.record_result(serde_json::json!({
-                                "id": asset_id,
-                                "name": exact_name,
-                                "type": asset_type,
-                                "success": true,
-                                "skipped": true,
-                                "reason": "already_uploaded",
-                                "errorReason": "Already uploaded in a previous run -- reused the existing spoofed ID.",
-                            }));
+                            ctx.record_result(serde_json::json!({"id": asset_id, "name": exact_name, "type": asset_type, "success": true, "stage": "download", "filePath": final_path}));
                             return;
                         }
 
@@ -998,6 +1022,9 @@ pub async fn process_spoofer_action(
                         }));
                     }
                 }
+                if let Some(dir) = &ctx_for_timeout.session_dir {
+                    let _ = tokio::fs::remove_file(dir.join(format!(".partial-{}", i + 1))).await;
+                }
             }
         })
         .await;
@@ -1023,7 +1050,14 @@ pub async fn process_spoofer_action(
     let final_replacements: serde_json::Map<String, serde_json::Value> =
         ctx.replacements.iter().map(|kv| (kv.key().clone(), kv.value().clone())).collect();
 
+    let saved_files = final_asset_results.iter().filter(|result| result.get("filePath").is_some()).count();
+    let output_folder = session_dir.as_ref().filter(|_| saved_files > 0);
+    if saved_files == 0 {
+        if let Some(dir) = &session_dir { let _ = tokio::fs::remove_dir(dir).await; }
+    }
     let job = serde_json::json!({
+        "downloadFolder": output_folder,
+        "savedFiles": saved_files,
         "id": job_id.clone(),
         "status": status,
         "startTime": start_time.to_rfc3339(),
@@ -1045,7 +1079,9 @@ pub async fn process_spoofer_action(
         ctx.log(&format!("Could not save spoofing job history: {error}"), "error");
     }
 
-    let summary = format!(
+    let summary = if is_download_only_job {
+        format!("Download finished: {saved_files} files saved, {skipped} skipped, {failed} failed.")
+    } else { format!(
         "Spoofing job finished in {:.2}s ({}ms/asset avg).\nTotal Assets: {} | Successful: {} (Skipped: {}) | Failed: {}",
         (duration_ms as f64) / 1000.0,
         if total > 0 { duration_ms / (total as i64) } else { 0 },
@@ -1053,7 +1089,7 @@ pub async fn process_spoofer_action(
         success,
         skipped,
         failed
-    );
+    ) };
     ctx.log(&summary, if completed_successfully { "success" } else { "warn" });
 
     if total > 0 && success == 0 && failed > 0 {
@@ -1078,7 +1114,7 @@ pub async fn process_spoofer_action(
             ),
             "info",
         );
-    } else if success > 0 {
+    } else if success > 0 && !is_download_only_job {
         ctx.log(
             "Uploads succeeded but no replacements got queued to the plugin. If this reproduces please share the log -- it means the mapping-collection step failed.",
             "warn",
@@ -1089,6 +1125,8 @@ pub async fn process_spoofer_action(
         "spoofer-result",
         serde_json::json!({
             "success": completed_successfully,
+            "downloadOnly": is_download_only_job,
+            "savedFiles": saved_files,
             "partial": !completed_successfully && success > 0,
             "replacements": final_replacements,
             "output": format!("Processed {success}/{total} assets."),
@@ -1099,15 +1137,9 @@ pub async fn process_spoofer_action(
     );
     finish_spoofer_job(&job_id);
 
-    let is_download_only = data.upload_types.as_ref().is_some_and(|types| {
-        types.contains(&"download".to_string()) && !types.contains(&"upload".to_string())
-    });
-    if is_download_only {
+    if let Some(dir) = output_folder {
         use tauri_plugin_opener::OpenerExt;
-        let _ = tokio::fs::create_dir_all(&base_downloads_dir).await;
-        let _ = app
-            .opener()
-            .open_path(base_downloads_dir.to_string_lossy().to_string(), None::<String>);
+        let _ = app.opener().open_path(dir.to_string_lossy().into_owned(), None::<String>);
     }
 
     {

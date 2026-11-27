@@ -224,7 +224,7 @@ local function startRequestedScan(decoded: any)
 	else
 		activeScanPath = nil
 	end
-	logToPlugin("Scan requested by Desktop App")
+	logToPlugin("Starting desktop scan " .. tostring(decoded.requestId or ""))
 	autoReplaceEnabled = true
 	setPluginGuiStatus("Scanning Assets...")
 	task.spawn(scan)
@@ -365,10 +365,22 @@ function startPolling(): ()
 							setPluginBatchSize(decoded.batchSize)
 						end
 						if decoded.requestAssets == true then
-							if operationBusy() then
+							if decoded.requestId and decoded.requestId == activeScanRequestId then
+								continue
+							elseif operationBusy() then
 								deferredScanRequest = decoded
+								if decoded.requestId then
+									local ok, reply = postJson(
+										"/scan-progress",
+										{ queuedRequestId = decoded.requestId }
+									)
+									if ok and reply and reply.cancelled then
+										deferredScanRequest = nil
+										continue
+									end
+								end
 								logToPlugin(
-									"[ISpooferMotion] Deferred scan request until the current operation finishes"
+									"[ISpooferMotion] Scan queued: waiting for the previous scan or replacement to stop. It will start automatically."
 								)
 							else
 								startRequestedScan(decoded)

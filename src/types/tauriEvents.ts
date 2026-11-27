@@ -30,6 +30,8 @@ export type SpooferAssetResult = {
 };
 
 export type SpooferResultPayload = {
+  downloadOnly?: boolean;
+  savedFiles?: number;
   jobId?: string;
   success?: boolean;
   partial?: boolean;

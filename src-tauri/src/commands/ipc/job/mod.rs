@@ -1,4 +1,5 @@
 #![allow(clippy::needless_pass_by_value)]
+mod output;
 pub mod processor;
 pub mod state;
 pub mod types;

@@ -103,3 +103,16 @@ pub async fn open_job_log(app: AppHandle, log_path: String) -> crate::error::Res
         .map_err(|err| err.to_string())?;
     Ok(true)
 }
+
+#[tauri::command]
+#[specta::specta]
+pub async fn open_download_session(app: AppHandle, job_id: String) -> crate::error::Result<()> {
+    let jobs = get_jobs(app.clone()).await?;
+    let path = jobs.0.as_array().and_then(|items| items.iter().find(|item| item["id"].as_str() == Some(&job_id)))
+        .and_then(|item| item["downloadFolder"].as_str()).ok_or("This job has no recorded download folder.")?;
+    let path = std::path::Path::new(path);
+    if !path.is_absolute() || !path.is_dir() { return Err("The saved folder was moved or removed.".into()); }
+    use tauri_plugin_opener::OpenerExt;
+    app.opener().open_path(path.to_string_lossy().into_owned(), None::<String>).map_err(|error| error.to_string())?;
+    Ok(())
+}

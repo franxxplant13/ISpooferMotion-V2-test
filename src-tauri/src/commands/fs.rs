@@ -13,13 +13,14 @@ pub struct NotificationOptions {
 #[specta::specta]
 pub async fn clear_app_cache(app: AppHandle) -> crate::error::Result<bool> {
     // On Windows the cache root also contains WebView storage. Never remove it here.
-    let cache_dir = app.path().app_cache_dir()?.join("roblox_audio");
+    for name in ["roblox_audio", "animation_previews"] {
+    let cache_dir = app.path().app_cache_dir()?.join(name);
     match tokio::fs::remove_dir_all(&cache_dir).await {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}
         Err(err) => return Err(err.into()),
     }
-    tokio::fs::create_dir_all(&cache_dir).await?;
+    }
     Ok(true)
 }
 

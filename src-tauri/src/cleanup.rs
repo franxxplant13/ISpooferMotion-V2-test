@@ -12,7 +12,7 @@ fn remove_owned_path(path: &Path) -> std::io::Result<()> {
             if metadata.is_dir() {
                 let mut result = std::fs::remove_dir_all(path);
                 for _ in 0..20 {
-                    if result.is_ok() || !path.exists() { return Ok(()); }
+                    if result.is_ok() || matches!(&result, Err(error) if error.kind() == std::io::ErrorKind::NotFound) { return Ok(()); }
                     std::thread::sleep(std::time::Duration::from_millis(250));
                     result = std::fs::remove_dir_all(path);
                 }

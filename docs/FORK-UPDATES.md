@@ -43,4 +43,16 @@ If you choose to uninstall the old version first, make sure the external JSON ba
 
 No updater keys or signing secrets are needed for this version. Enable GitHub Actions for your fork if GitHub displays an enable-workflows notice. The PR runs source checks when Actions is enabled. Merging into main starts the Windows release build. After all checks and the build succeed, the workflow publishes the installer, bundled Studio plugin, and SHA256SUMS.txt to Releases. The bundled plugin is already included in the installer.
 
-For later updates, increase the versions together, merge the changes, and wait for the new release. You can also run **CI & Release** manually from Actions using the tag matching package.json (initially `v2.8.1`). Merely editing repository files does not update an installed app. This installer can still show Windows SmartScreen's Unknown publisher warning because it does not have a Windows publisher certificate.
+For later updates, increase the versions together, merge the changes, and wait for the new release. You can also run **CI & Release** manually from Actions using the tag matching package.json (currently `v2.8.2`). Merely editing repository files does not update an installed app. This installer can still show Windows SmartScreen's Unknown publisher warning because it does not have a Windows publisher certificate.
+
+## Clean uninstall (2.8.2 and later)
+
+Use Windows Settings > Apps > Installed apps > ISpooferMotion > Uninstall. To keep your data for reinstalling, leave **Delete the application data** unchecked. To remove it, check that box before confirming uninstall. Export a JSON backup to Documents first if you want to restore settings later.
+
+With data removal selected, the uninstaller closes the app and runs a headless cleanup helper before deleting the program. It removes this V2 app's Windows Credential Manager entries (including orphaned chunks), Roaming and Local app-data folders (settings, WebView storage, caches, logs, diagnostics, and downloads inside app data), app-owned plugin files from the local Roblox plugin folders, the API dump temporary file, and leftover private cookie-detection temporary folders. If cleanup fails, uninstall stops and reports failure so you can close the app/Studio and retry. The helper refuses redirected app-data roots rather than traversing them.
+
+For scripted removal, `uninstall.exe /S /CLEAN` explicitly requests the same full cleanup. An uninstall performed as part of an update (`/UPDATE`) always preserves app data and credentials, even if `/CLEAN` is also supplied. Existing 2.8.1 uninstallers do not gain these hooks until you install 2.8.2 or later.
+
+External JSON backups, exported/downloaded assets in your chosen folders, source place files, unrelated Roblox plugins, Roblox itself, and the shared Microsoft WebView2 runtime are retained. Delete your own unwanted exported files manually. The cleanup applies to the current Windows user's V2 data and credential identity; it does not remove V1 data or other Windows users' files. This is ordinary app cleanup, not secure erasure of Windows history or disk recovery traces.
+
+**Clear Local Cache** only clears derived runtime caches and cached audio. It now preserves settings, saved replacement/place-ID mappings, accounts, credentials, and downloaded outputs. It refuses to run during active jobs or scans.

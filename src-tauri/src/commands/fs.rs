@@ -12,7 +12,8 @@ pub struct NotificationOptions {
 #[tauri::command]
 #[specta::specta]
 pub async fn clear_app_cache(app: AppHandle) -> crate::error::Result<bool> {
-    let cache_dir = app.path().app_cache_dir()?;
+    // On Windows the cache root also contains WebView storage. Never remove it here.
+    let cache_dir = app.path().app_cache_dir()?.join("roblox_audio");
     match tokio::fs::remove_dir_all(&cache_dir).await {
         Ok(()) => {}
         Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}

@@ -45,7 +45,7 @@ pub async fn close_splashscreen(app: AppHandle) -> bool {
     }
 }
 
-fn roblox_plugins_dirs() -> Vec<PathBuf> {
+pub(crate) fn roblox_plugins_dirs() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
     #[cfg(target_os = "windows")]
@@ -68,7 +68,7 @@ fn roblox_plugins_dirs() -> Vec<PathBuf> {
     dirs
 }
 
-fn is_owned_plugin_file_name(file_name: &str) -> bool {
+pub(crate) fn is_owned_plugin_file_name(file_name: &str) -> bool {
     if matches!(
         file_name,
         "ISpooferMotion.rbxmx" | ".ISpooferMotion.rbxmx.tmp" | ".ISpooferMotion.rbxmx.backup"

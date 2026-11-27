@@ -1,5 +1,7 @@
 pub mod api_dump;
 pub mod commands;
+#[cfg(windows)]
+pub mod cleanup;
 pub mod domain;
 pub mod error;
 pub mod studio_bridge;

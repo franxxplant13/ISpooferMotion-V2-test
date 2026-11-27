@@ -337,51 +337,7 @@ pub async fn clear_profile_secrets(
     _profile_id: Option<String>,
 ) -> crate::error::Result<bool> {
     let _guard = secrets_mutex().lock().await;
-    tokio::task::spawn_blocking(|| -> crate::error::Result<()> {
-        let count = read_manifest_chunk_count()?;
-
-        let manifest = get_secrets_keyring_entry()?;
-        match manifest.delete_credential() {
-            Ok(()) | Err(keyring::Error::NoEntry) => {}
-            Err(e) => {
-                return Err(crate::error::AppError::Custom(format!(
-                    "Failed to clear secrets manifest: {e}"
-                )))
-            }
-        }
-
-        match count {
-            Some(count) => {
-                for index in 0..count {
-                    let entry = chunk_entry(index)?;
-                    match entry.delete_credential() {
-                        Ok(()) | Err(keyring::Error::NoEntry) => {}
-                        Err(e) => {
-                            return Err(crate::error::AppError::Custom(format!(
-                                "Failed to clear secrets chunk {index}: {e}"
-                            )))
-                        }
-                    }
-                }
-            }
-            None => {
-                for index in 0..MAX_SECRET_CHUNKS {
-                    let entry = chunk_entry(index)?;
-                    match entry.delete_credential() {
-                        Ok(()) => {}
-                        Err(keyring::Error::NoEntry) => break,
-                        Err(e) => {
-                            return Err(crate::error::AppError::Custom(format!(
-                                "Failed to clear orphaned secrets chunk {index}: {e}"
-                            )))
-                        }
-                    }
-                }
-            }
-        }
-        save_opencloud_api_key(None)?;
-        Ok(())
-    })
+    tokio::task::spawn_blocking(clear_all_stored_credentials)
     .await
     .map_err(|e| crate::error::AppError::Custom(format!("Credential task failed: {e}")))??;
 
@@ -392,4 +348,68 @@ pub async fn clear_profile_secrets(
         Err(e) => return Err(e.into()),
     }
     Ok(true)
+}
+
+
+/// Also used by the headless Windows uninstaller, before any app runtime starts.
+pub(crate) fn clear_all_stored_credentials() -> crate::error::Result<()> {
+    let services = credential_cleanup_services();
+    clear_credential_services(&services)
+}
+
+fn credential_cleanup_services() -> Vec<String> {
+    let mut services = vec![
+        "ISpooferMotion.ProfileSecrets".to_string(),
+        "ISpooferMotion.OpenCloudApiKey".to_string(),
+    ];
+    // Inspect every possible slot, even if the manifest is corrupt or slots have gaps.
+    services.extend((0..MAX_SECRET_CHUNKS).map(|i| format!("ISpooferMotion.ProfileSecrets.{i}")));
+    services
+}
+
+fn clear_credential_services(services: &[String]) -> crate::error::Result<()> {
+    let mut failed = Vec::new();
+    for service in services {
+        let result = Entry::new(service, "default").and_then(|entry| entry.delete_credential());
+        if !matches!(result, Ok(()) | Err(keyring::Error::NoEntry)) {
+            failed.push(service.clone());
+        }
+    }
+    if failed.is_empty() {
+        Ok(())
+    } else {
+        Err(crate::error::AppError::Custom(format!(
+            "Could not remove app credentials: {}", failed.join(", ")
+        )))
+    }
+}
+
+#[cfg(test)]
+mod cleanup_tests {
+    use super::*;
+
+    #[test]
+    fn cleanup_names_are_bounded_and_include_all_slots() {
+        let services = credential_cleanup_services();
+        assert_eq!(services.len(), MAX_SECRET_CHUNKS + 2);
+        assert_eq!(services[0], "ISpooferMotion.ProfileSecrets");
+        assert_eq!(services[1], "ISpooferMotion.OpenCloudApiKey");
+        assert_eq!(services.last().unwrap(), "ISpooferMotion.ProfileSecrets.511");
+        assert!(services.iter().all(|s| s.starts_with("ISpooferMotion.")));
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn native_credential_cleanup_handles_missing_slots_and_is_repeatable() {
+        let prefix = format!("ISpooferMotion.CleanupTest.{}", uuid::Uuid::new_v4());
+        let services: Vec<String> = (0..3).map(|i| format!("{prefix}.{i}")).collect();
+        for index in [0, 2] {
+            Entry::new(&services[index], "default").unwrap().set_password("test-only-value").unwrap();
+        }
+        clear_credential_services(&services).unwrap();
+        for service in &services {
+            assert!(matches!(Entry::new(service, "default").unwrap().get_password(), Err(keyring::Error::NoEntry)));
+        }
+        clear_credential_services(&services).unwrap();
+    }
 }

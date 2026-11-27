@@ -62,7 +62,7 @@ async function waitForStudioScanComplete(
       lastSyncedTime = now;
     } else if (now - lastSyncedTime > 5000) {
       throw new Error(
-        'Roblox Studio is not connected or the ISpooferMotion plugin is disabled. Please open Studio and try again.',
+        'Roblox Studio is not connected or the PM SPOOFER plugin is disabled. Please open Studio and try again.',
       );
     }
     if ((health.scanGeneration ?? 0) <= previousGeneration) {

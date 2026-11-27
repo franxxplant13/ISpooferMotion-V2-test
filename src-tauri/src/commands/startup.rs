@@ -11,7 +11,7 @@ pub async fn close_splashscreen(app: AppHandle) -> bool {
             "main",
             tauri::WebviewUrl::App("index.html".into()),
         )
-        .title("IspooferMotion pm")
+        .title("PM SPOOFER")
         .inner_size(1100.0, 620.0)
         .min_inner_size(800.0, 500.0)
         .resizable(true)
@@ -69,6 +69,11 @@ pub(crate) fn roblox_plugins_dirs() -> Vec<PathBuf> {
 }
 
 pub(crate) fn is_owned_plugin_file_name(file_name: &str) -> bool {
+    if file_name == "PM-SPOOFER.rbxmx" || matches!(file_name, ".PM-SPOOFER.rbxmx.tmp" | ".PM-SPOOFER.rbxmx.backup") { return true; }
+    if let Some(version) = file_name.strip_prefix("PM-SPOOFER-Plugin-v").and_then(|v| v.strip_suffix(".rbxmx")) {
+        let parts: Vec<_> = version.split('.').collect();
+        return parts.len() == 3 && parts.iter().all(|p| !p.is_empty() && p.bytes().all(|c| c.is_ascii_digit()));
+    }
     if matches!(
         file_name,
         "ISpooferMotion.rbxmx" | ".ISpooferMotion.rbxmx.tmp" | ".ISpooferMotion.rbxmx.backup"
@@ -98,22 +103,22 @@ pub async fn sync_roblox_plugin(app: AppHandle) -> crate::error::Result<bool> {
 
         if let Ok(p) = app
             .path()
-            .resolve("_up_/dist-plugin/ISpooferMotion.rbxmx", tauri::path::BaseDirectory::Resource)
+            .resolve("_up_/dist-plugin/PM-SPOOFER.rbxmx", tauri::path::BaseDirectory::Resource)
         {
             candidates.push(p);
         }
         if let Ok(p) = app
             .path()
-            .resolve("dist-plugin/ISpooferMotion.rbxmx", tauri::path::BaseDirectory::Resource)
+            .resolve("dist-plugin/PM-SPOOFER.rbxmx", tauri::path::BaseDirectory::Resource)
         {
             candidates.push(p);
         }
 
         let local_candidates = [
-            PathBuf::from("dist-plugin").join("ISpooferMotion.rbxmx"),
-            PathBuf::from("tmp_clone").join("dist-plugin").join("ISpooferMotion.rbxmx"),
-            PathBuf::from("../dist-plugin").join("ISpooferMotion.rbxmx"),
-            PathBuf::from("../../dist-plugin").join("ISpooferMotion.rbxmx"),
+            PathBuf::from("dist-plugin").join("PM-SPOOFER.rbxmx"),
+            PathBuf::from("tmp_clone").join("dist-plugin").join("PM-SPOOFER.rbxmx"),
+            PathBuf::from("../dist-plugin").join("PM-SPOOFER.rbxmx"),
+            PathBuf::from("../../dist-plugin").join("PM-SPOOFER.rbxmx"),
         ];
         for c in local_candidates {
             candidates.push(c);
@@ -129,12 +134,12 @@ pub async fn sync_roblox_plugin(app: AppHandle) -> crate::error::Result<bool> {
                     let mut p_tmp = base.clone();
                     p_tmp.push("tmp_clone");
                     p_tmp.push("dist-plugin");
-                    p_tmp.push("ISpooferMotion.rbxmx");
+                    p_tmp.push("PM-SPOOFER.rbxmx");
                     candidates.push(p_tmp);
 
                     let mut p_root = base.clone();
                     p_root.push("dist-plugin");
-                    p_root.push("ISpooferMotion.rbxmx");
+                    p_root.push("PM-SPOOFER.rbxmx");
                     candidates.push(p_root);
                 }
             }
@@ -162,8 +167,8 @@ pub async fn sync_roblox_plugin(app: AppHandle) -> crate::error::Result<bool> {
             let _ = tokio::fs::create_dir_all(&dest_dir).await;
         }
 
-        let dest_path = dest_dir.join("ISpooferMotion.rbxmx");
-        let temp_path = dest_dir.join(".ISpooferMotion.rbxmx.tmp");
+        let dest_path = dest_dir.join("PM-SPOOFER.rbxmx");
+        let temp_path = dest_dir.join(".PM-SPOOFER.rbxmx.tmp");
         let copied = match tokio::fs::copy(&resource_path, &temp_path).await {
             Ok(bytes) => bytes,
             Err(error) => {
@@ -174,7 +179,7 @@ pub async fn sync_roblox_plugin(app: AppHandle) -> crate::error::Result<bool> {
 
         #[cfg(target_os = "windows")]
         let install_result = {
-            let backup_path = dest_dir.join(".ISpooferMotion.rbxmx.backup");
+            let backup_path = dest_dir.join(".PM-SPOOFER.rbxmx.backup");
             let _ = tokio::fs::remove_file(&backup_path).await;
             let had_previous = tokio::fs::try_exists(&dest_path).await.unwrap_or(false);
 

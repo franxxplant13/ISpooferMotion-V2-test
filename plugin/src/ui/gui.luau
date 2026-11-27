@@ -3,6 +3,15 @@
 --!nolint
 
 local CoreGui = game:GetService("CoreGui")
+local pmIcon
+pcall(function()
+	local image = game:GetService("AssetService")
+		:CreateEditableImage({ Size = Vector2.new(48, 48) })
+	local pixels = game:GetService("EncodingService")
+		:Base64Decode(buffer.fromstring("__PM_ICON_BASE64__"))
+	image:WritePixelsBuffer(Vector2.zero, Vector2.new(48, 48), pixels)
+	pmIcon = Content.fromObject(image)
+end)
 local gui = nil
 local statusText = nil
 local logsScrollingFrame = nil
@@ -132,7 +141,9 @@ local function createPluginGui()
 	icon.Position = UDim2.new(0, 16, 0.5, 0)
 	icon.AnchorPoint = Vector2.new(0, 0.5)
 	icon.BackgroundTransparency = 1
-	icon.Image = "rbxassetid://137844667859456"
+	if pmIcon then
+		icon.ImageContent = pmIcon
+	end
 	icon.Parent = header
 
 	local title = Instance.new("TextLabel")
@@ -145,7 +156,7 @@ local function createPluginGui()
 	title.TextSize = 14
 	title.TextColor3 = Color3.fromHex("#fafafa")
 	title.TextXAlignment = Enum.TextXAlignment.Left
-	title.Text = "ISpooferMotion"
+	title.Text = "PM SPOOFER"
 	title.Parent = header
 
 	local versionLabel = Instance.new("TextLabel")
@@ -217,14 +228,14 @@ local function createPluginGui()
 
 			local serverStorage = game:GetService("ServerStorage")
 
-			local previousExport = serverStorage:FindFirstChild("ISpooferMotion_Logs")
+			local previousExport = serverStorage:FindFirstChild("PM SPOOFER Logs")
 			if previousExport then
 				previousExport:Destroy()
 			end
 
 			local logScript = Instance.new("Script")
-			logScript.Name = "ISpooferMotion_Logs"
-			logScript.Source = "-- ISpooferMotion Logs\n-- Copy the contents below:\n\n--[[\n"
+			logScript.Name = "PM SPOOFER Logs"
+			logScript.Source = "-- PM SPOOFER Logs\n-- Copy the contents below:\n\n--[[\n"
 				.. finalString
 				.. "\n]]"
 			logScript.Parent = serverStorage
@@ -236,9 +247,7 @@ local function createPluginGui()
 			if exportSuccess and opened then
 				openLogsButton.Text = "Opened!"
 			else
-				warn(
-					"ISpooferMotion Open Logs Failed: " .. tostring(exportSuccess and err or opened)
-				)
+				warn("PM SPOOFER Open Logs Failed: " .. tostring(exportSuccess and err or opened))
 				openLogsButton.Text = "Error"
 			end
 
@@ -729,7 +738,7 @@ local function createPluginGui()
 			end, currentBatchSize)
 		else
 			warn(
-				"[ISpooferMotion] Plugin handler not ready yet - wait for the plugin to finish loading."
+				"[PM SPOOFER] Plugin handler not ready yet - wait for the plugin to finish loading."
 			)
 		end
 	end)
@@ -784,7 +793,7 @@ logConnection = LogService.MessageOut:Connect(function(message, messageType)
 		return
 	end
 
-	local isIsm = string.find(message, "[ISpooferMotion]", 1, true)
+	local isIsm = string.find(message, "[PM SPOOFER]", 1, true)
 
 	if isIsm then
 		logCounter += 1
@@ -806,7 +815,7 @@ logConnection = LogService.MessageOut:Connect(function(message, messageType)
 		logLabel.TextXAlignment = Enum.TextXAlignment.Left
 		logLabel.TextWrapped = true
 
-		local cleanMsg = string.gsub(message, "%[ISpooferMotion%] ", "")
+		local cleanMsg = string.gsub(message, "%[PM SPOOFER%] ", "")
 		cleanMsg = string.gsub(cleanMsg, "%[Warning%] ", "")
 
 		logLabel.Text = cleanMsg
@@ -829,7 +838,7 @@ function logToPlugin(text)
 	if string.find(msg, "[Warning]", 1, true) then
 		warn(msg)
 	else
-		print("[ISpooferMotion] " .. msg)
+		print("[PM SPOOFER] " .. msg)
 	end
 end
 

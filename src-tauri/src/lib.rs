@@ -127,7 +127,7 @@ pub fn run() {
 
     std::panic::set_hook(Box::new(|info| {
         let msg =
-            format!("ISpooferMotion encountered a fatal error. Please check the logs.\n\n{}", info);
+            format!("PM SPOOFER encountered a fatal error. Please check the logs.\n\n{}", info);
         log::error!("FATAL PANIC: {}", msg);
         let _ = rfd::MessageDialog::new()
             .set_title("Fatal Error")
@@ -180,7 +180,7 @@ pub fn run() {
             if let Some(icon) = app.default_window_icon().cloned() {
                 match TrayIconBuilder::new()
                     .icon(icon)
-                    .tooltip("IspooferMotion pm")
+                    .tooltip("PM SPOOFER")
                     .on_tray_icon_event(|tray, event| {
                         if let TrayIconEvent::Click {
                             button: MouseButton::Left,

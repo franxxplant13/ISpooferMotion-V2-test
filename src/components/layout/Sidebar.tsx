@@ -42,14 +42,14 @@ export default function Sidebar({
     <aside className="h-full w-[220px] shrink-0 border-r border-border-subtle bg-bg-surface/30 p-2 flex flex-col relative z-20">
       <div className="flex h-10 shrink-0 items-center gap-2 mb-2 px-3">
         <img
-          src="/ism_logo_theme_swap.svg"
+          src="/pm-spoofer.png"
           className="w-7 h-7 object-contain select-none shrink-0"
-          alt="IspooferMotion pm"
+          alt="PM SPOOFER"
           draggable={false}
         />
         <div className="flex flex-col leading-tight min-w-0">
           <span className="text-[12px] font-semibold tracking-tight text-foreground truncate">
-            IspooferMotion pm
+            PM SPOOFER
           </span>
           <div className="flex items-center gap-1">
             <span

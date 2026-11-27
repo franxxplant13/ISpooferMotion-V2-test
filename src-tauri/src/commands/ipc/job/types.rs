@@ -16,6 +16,8 @@ pub struct SpooferActionRequest {
     pub spoof_sounds: Option<bool>,
     #[serde(rename = "uploadTypes")]
     pub upload_types: Option<Vec<String>>,
+    #[serde(rename = "packName")]
+    pub pack_name: Option<String>,
     #[serde(rename = "downloadPath")]
     pub download_path: Option<String>,
     #[serde(rename = "forcePlaceIds")]

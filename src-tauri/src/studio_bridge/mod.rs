@@ -116,7 +116,7 @@ pub async fn start_server(app_handle: AppHandle) {
     let Some((listener, addr, occupied_defaults)) = bind_available_listener().await else {
         log::error!(
             "Could not start plugin HTTP server: all ports {}-{} are occupied. \
-             Close other ISpooferMotion instances or programs using these ports.",
+             Close other PM SPOOFER instances or programs using these ports.",
             PLUGIN_PORT_START,
             PLUGIN_PORT_FALLBACK_END
         );

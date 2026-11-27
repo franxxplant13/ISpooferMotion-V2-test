@@ -658,6 +658,17 @@ pub async fn process_spoofer_action(
     } else {
         None
     };
+    let pack_name = data.pack_name.as_deref().map(str::trim);
+    let staging = if let Some(name) = pack_name {
+        if name.is_empty() || !is_download_only_job || parsed_assets.iter().any(|(_, kind, _, _)| !matches!(kind.as_str(), "animation" | "raw_keyframe_sequence")) {
+            finish_spoofer_job(&job_id);
+            return Err("Choose only animations and enter a pack name.".into());
+        }
+        match tempfile::tempdir_in(session_dir.as_ref().unwrap()) {
+            Ok(dir) => Some(dir),
+            Err(err) => { finish_spoofer_job(&job_id); return Err(err.into()); }
+        }
+    } else { None };
     let ctx = Arc::new(JobContext {
         job_id: job_id.clone(),
         cookie,
@@ -675,7 +686,7 @@ pub async fn process_spoofer_action(
         }),
         account_id: selected_account_id(&account.0),
         forced_place_ids,
-        session_dir: session_dir.clone(),
+        session_dir: staging.as_ref().map(|d| d.path().to_owned()).or_else(|| session_dir.clone()),
         safe_place_name,
         place_name_raw,
         base_downloads_dir: base_downloads_dir.clone(),
@@ -704,6 +715,7 @@ pub async fn process_spoofer_action(
     });
 
     let skip_owned = data.skip_owned.unwrap_or(false);
+    let staging_pack = staging.is_some();
     let stream = stream::iter(parsed_assets.into_iter().enumerate());
 
     const PER_ASSET_TIMEOUT_SECS: u64 = 600;
@@ -890,7 +902,11 @@ pub async fn process_spoofer_action(
                                 for label in labels {
                                     match super::output::save_reference(std::path::Path::new(&file_path), dir, &label, file_ext).await {
                                         Ok(path) => {
-                                            ctx.log(&format!("Saved {} from asset {asset_id}", path.display()), "info");
+                                            if staging_pack {
+                                                ctx.log(&format!("Prepared {label} from asset {asset_id} for the pack"), "info");
+                                            } else {
+                                                ctx.log(&format!("Saved {} from asset {asset_id}", path.display()), "info");
+                                            }
                                             ctx.record_result(serde_json::json!({"id": asset_id, "name": label, "type": asset_type, "success": true, "stage": "download", "filePath": path}));
                                         }
                                         Err(error) => {
@@ -1059,23 +1075,57 @@ pub async fn process_spoofer_action(
     let failed = ctx.fail_count.load(Ordering::Relaxed);
     let interrupted_flag = ctx.interrupted.load(Ordering::Relaxed);
 
-    let completed_successfully = !interrupted_flag && failed == 0;
+    let end_time = chrono::Utc::now();
+    let duration_ms = (end_time - start_time).num_milliseconds().max(0);
+
+    let mut final_asset_results = ctx.asset_results.lock().map(|r| r.clone()).unwrap_or_default();
+    let final_replacements: serde_json::Map<String, serde_json::Value> =
+        ctx.replacements.iter().map(|kv| (kv.key().clone(), kv.value().clone())).collect();
+
+    let mut pack_error = None;
+    let saved_files = if let (Some(name), Some(dir)) = (pack_name, &session_dir) {
+        let handle = app.clone();
+        let folder = dir.clone();
+        let label = name.to_owned();
+        let mut rows = final_asset_results.clone();
+        let assembled = tokio::task::spawn_blocking(move || {
+            let result = super::pack::assemble(&handle, &folder, &label, &mut rows, interrupted_flag || failed > 0 || skipped > 0);
+            (result, rows)
+        }).await;
+        let result = match assembled {
+            Ok((result, rows)) => { final_asset_results = rows; result }
+            Err(err) => Err(err.to_string()),
+        };
+        match result {
+            Ok(Some(temp)) => match super::output::save_reference(temp.path(), dir, name, "rbxm").await {
+                Ok(path) => {
+                    ctx.log(&format!("Saved animation pack: {}", path.display()), "success");
+                    1
+                }
+                Err(err) => { pack_error = Some(err.to_string()); 0 }
+            },
+            Ok(None) => { pack_error = Some("Partial pack discarded.".to_owned()); 0 }
+            Err(err) => { pack_error = Some(err); 0 }
+        }
+    } else { final_asset_results.iter().filter(|result| result.get("filePath").is_some()).count() };
+    if pack_name.is_some() {
+        for row in &final_asset_results {
+            if let Some(reason) = row["errorReason"].as_str() {
+                ctx.log(&format!("Pack entry {}: {reason}", row["name"]), "warn");
+            }
+        }
+    }
+    drop(staging);
+    if let Some(err) = &pack_error { ctx.log(err, "warn"); }
+    let completed_successfully = !interrupted_flag && failed == 0 && pack_error.is_none() && (pack_name.is_none() || (skipped == 0 && final_asset_results.iter().all(|row| row["success"] == true)));
     let status = if completed_successfully {
         "successful"
-    } else if success == 0 {
+    } else if success == 0 || pack_error.is_some() {
         "errored"
     } else {
         "partially_finished"
     };
 
-    let end_time = chrono::Utc::now();
-    let duration_ms = (end_time - start_time).num_milliseconds().max(0);
-
-    let final_asset_results = ctx.asset_results.lock().map(|r| r.clone()).unwrap_or_default();
-    let final_replacements: serde_json::Map<String, serde_json::Value> =
-        ctx.replacements.iter().map(|kv| (kv.key().clone(), kv.value().clone())).collect();
-
-    let saved_files = final_asset_results.iter().filter(|result| result.get("filePath").is_some()).count();
     let output_folder = session_dir.as_ref().filter(|_| saved_files > 0);
     if saved_files == 0 {
         if let Some(dir) = &session_dir { let _ = tokio::fs::remove_dir(dir).await; }
@@ -1104,7 +1154,11 @@ pub async fn process_spoofer_action(
         ctx.log(&format!("Could not save spoofing job history: {error}"), "error");
     }
 
-    let summary = if is_download_only_job {
+    let summary = if pack_name.is_some() {
+        let clips = final_asset_results.iter().filter(|r| r["success"] == true && r["skipped"] != true).count();
+        if saved_files == 1 { format!("Saved one animation pack containing {clips} clips.") }
+        else { format!("No animation pack saved. {}", pack_error.as_deref().unwrap_or("")) }
+    } else if is_download_only_job {
         format!("Download finished: {saved_files} files saved, {skipped} skipped, {failed} failed.")
     } else { format!(
         "Spoofing job finished in {:.2}s ({}ms/asset avg).\nTotal Assets: {} | Successful: {} (Skipped: {}) | Failed: {}",
@@ -1134,7 +1188,7 @@ pub async fn process_spoofer_action(
     if !final_replacements.is_empty() {
         ctx.log(
             &format!(
-                "{} replacement(s) queued to the Studio plugin bridge. They only apply once Studio is running with the ISpooferMotion plugin loaded -- watch the plugin status pill in the app. Don't forget to save your place after the replacements land.",
+                "{} replacement(s) queued to the Studio plugin bridge. They only apply once Studio is running with the PM SPOOFER plugin loaded -- watch the plugin status pill in the app. Don't forget to save your place after the replacements land.",
                 final_replacements.len()
             ),
             "info",

@@ -369,6 +369,7 @@ export type SpooferActionRequest = {
   groupId: string | null;
   spoofSounds: boolean | null;
   uploadTypes: string[] | null;
+  packName: string | null;
   downloadPath: string | null;
   forcePlaceIds: string | null;
   assetForcePlaceIds: { [key in string]: string } | null;

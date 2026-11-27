@@ -57,6 +57,7 @@ import { SpoofingCustomAssets } from './spoofing/SpoofingCustomAssets';
 import { SpoofProgressOverlay, SpoofProgressText } from './spoofing/SpoofingHeader';
 
 type SpooferRunContext = {
+  packName?: string;
   selectedUserId?: string;
   selectedGroupId?: string;
   cookie?: string;
@@ -232,7 +233,7 @@ export default function SpoofingView() {
               import('@tauri-apps/plugin-notification')
                 .then(({ sendNotification }) => {
                   sendNotification({
-                    title: 'ISpooferMotion',
+                    title: 'PM SPOOFER',
                     body: `Auto-queued copied asset ID: ${assetId}`,
                   });
                 })
@@ -575,6 +576,7 @@ export default function SpoofingView() {
     const apiKey = (runContext?.apiKey ?? effectiveApiKey).trim();
 
     const spoofSounds = runContext?.spoofSounds ?? config.spoofing.audio;
+    const downloadOnly = Boolean(runContext?.packName) || config.spoofing.downloadOnly;
     const uploadTypes = runContext?.uploadTypes ?? config.spoofing.uploadTypes;
 
     if (cookie.length < 50) {
@@ -619,7 +621,7 @@ export default function SpoofingView() {
           if (id && asset.type) {
             const key = getAssetKey(asset);
             if (
-              config.spoofing.downloadOnly &&
+              downloadOnly &&
               !seenKeys.has(key) &&
               (!selectedKeys.size || selectedKeys.has(key))
             ) {
@@ -721,11 +723,8 @@ export default function SpoofingView() {
     setLogs([
       `[INFO] Job initialized. Downloader: ${downloaderName} | Uploader: ${uploaderName}\n`,
     ]);
-    const authorization = await authorizeJob(
-      config.spoofing.downloadOnly,
-      uploadTypes,
-      apiKey,
-      (key) => validateApiKeyForRun(key, selectedUser),
+    const authorization = await authorizeJob(downloadOnly, uploadTypes, apiKey, (key) =>
+      validateApiKeyForRun(key, selectedUser),
     );
     if (!authorization) return;
 
@@ -792,7 +791,16 @@ export default function SpoofingView() {
         ),
       ).join(',');
 
+      if (
+        runContext?.packName &&
+        finalAssetsPayload.some(
+          (item) => !['animation', 'raw_keyframe_sequence'].includes(item.type),
+        )
+      ) {
+        throw new Error('Check only animation rows to download one animation pack.');
+      }
       const baseData = {
+        packName: runContext?.packName,
         cookie,
         fallbackCookies: fallbackCookies.length > 0 ? fallbackCookies : null,
         ...authorization,
@@ -860,7 +868,11 @@ export default function SpoofingView() {
       if (detail?.targetPaths) {
         useSpooferStore.getState().setTargetPathsMap(detail.targetPaths);
       }
-      void handleRunSpooferRef.current(detail?.assetIds);
+      void handleRunSpooferRef.current(
+        detail?.assetIds,
+        false,
+        detail?.packName ? { packName: detail.packName } : undefined,
+      );
     };
     const onOpenPaste = () => setPasteIdsOpen(true);
     const onStartScan = (e: Event) => {

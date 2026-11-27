@@ -110,7 +110,7 @@ pub async fn show_notification(
 ) -> crate::error::Result<bool> {
     app.notification()
         .builder()
-        .title(options.title.as_deref().unwrap_or("ISpooferMotion"))
+        .title(options.title.as_deref().unwrap_or("PM SPOOFER"))
         .body(options.body.as_deref().unwrap_or("Notification"))
         .icon("app-icon")
         .show()

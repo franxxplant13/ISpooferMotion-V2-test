@@ -35,7 +35,7 @@ export default function BackupCard() {
         },
       });
       const path = await save({
-        defaultPath: 'IspooferMotion-pm-data.json',
+        defaultPath: 'PM-SPOOFER-data.json',
         filters: [{ name: 'App data backup', extensions: ['json'] }],
       });
       if (!path) return;

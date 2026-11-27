@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="./src/assets/app_icon.png" width="128" height="128" alt="ISpooferMotion">
+  <img src="./public/pm-spoofer.png" width="128" height="128" alt="PM SPOOFER">
 </p>
 
-<h1 align="center">IspooferMotion pm (V2 fork)</h1>
+<h1 align="center">PM SPOOFER</h1>
 
 <p align="center">
   A desktop asset replacement tool for Roblox Studio.
@@ -50,7 +50,7 @@
 
 ## Overview
 
-ISpooferMotion connects directly to a running Roblox Studio session through a companion Luau plugin. Once connected, assets can be discovered, previewed, and replaced across the entire place without manually searching through instances or modifying place files.
+PM SPOOFER connects directly to a running Roblox Studio session through a companion Luau plugin. Once connected, assets can be discovered, previewed, and replaced across the entire place without manually searching through instances or modifying place files.
 
 <table>
   <tr>
@@ -73,7 +73,7 @@ ISpooferMotion connects directly to a running Roblox Studio session through a co
   </tr>
 </table>
 
-ISpooferMotion keeps the desktop application and Studio plugin synchronized so replacements can be applied while the place is running. The application handles discovery, previews, profiles, and replacement configuration while the plugin performs the Studio side operations.
+PM SPOOFER keeps the desktop application and Studio plugin synchronized so replacements can be applied while the place is running. The application handles discovery, previews, profiles, and replacement configuration while the plugin performs the Studio side operations.
 
 ---
 
@@ -81,16 +81,16 @@ ISpooferMotion keeps the desktop application and Studio plugin synchronized so r
 
 Download the latest release for your platform from the [releases page](https://github.com/franxxplant13/ISpooferMotion-V2-test/releases/latest).
 
-| Platform | Package                               |
-| -------- | ------------------------------------- |
-| Windows  | `ISpooferMotion_x.x.x_x64-setup.exe`  |
-| macOS    | `ISpooferMotion_x.x.x_x64.dmg`        |
-| Linux    | `ISpooferMotion_x.x.x_amd64.AppImage` |
+| Platform | Package                           |
+| -------- | --------------------------------- |
+| Windows  | `PM.SPOOFER_x.x.x_x64-setup.exe`  |
+| macOS    | `PM.SPOOFER_x.x.x_x64.dmg`        |
+| Linux    | `PM.SPOOFER_x.x.x_amd64.AppImage` |
 
-The Roblox Studio plugin, `ISpooferMotion.rbxmx`, is included with every release. The desktop app automatically synchronizes its bundled plugin into supported local Roblox Studio plugin directories when the app starts.
+The Roblox Studio plugin, `PM-SPOOFER-Plugin-v<version>.rbxmx`, is included with every release. The desktop app automatically synchronizes its bundled plugin into supported local Roblox Studio plugin directories when the app starts.
 
 > [!NOTE]
-> Windows Defender and other antivirus software may flag unsigned builds. ISpooferMotion is not currently code signed. Builds can be independently verified by compiling the project from source.
+> Windows Defender and other antivirus software may flag unsigned builds. PM SPOOFER is not currently code signed. Builds can be independently verified by compiling the project from source.
 
 ---
 
@@ -197,7 +197,7 @@ bun run check
 
 ## License
 
-ISpooferMotion is licensed under the **GNU General Public License v3.0 or later**.
+PM SPOOFER is licensed under the **GNU General Public License v3.0 or later**.
 
 See [`LICENSE`](LICENSE) for the full license text.
 

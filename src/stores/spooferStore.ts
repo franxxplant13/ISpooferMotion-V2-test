@@ -526,7 +526,7 @@ export const applyReplacements = async (
         setSpoofingLogs((prev) =>
           appendSpoofingLog(
             prev,
-            `[INFO] ${Object.keys(replacements).length} replacement(s) generated but the Studio plugin isn't connected. Open Studio with the ISpooferMotion plugin loaded and use Retry Replacement, or copy the IDs from the Results panel.`,
+            `[INFO] ${Object.keys(replacements).length} replacement(s) generated but the Studio plugin isn't connected. Open Studio with the PM SPOOFER plugin loaded and use Retry Replacement, or copy the IDs from the Results panel.`,
           ),
         );
       } else {

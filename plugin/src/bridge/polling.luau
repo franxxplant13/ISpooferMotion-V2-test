@@ -189,15 +189,15 @@ local function fetchApiDumpProperties()
 
 			ASSET_PROPERTIES = newAssetProps
 			STRING_SCAN_PROPERTIES = newStringProps
-			logToPlugin("[ISpooferMotion] Live API dump loaded from GitHub.")
+			logToPlugin("[PM SPOOFER] Live API dump loaded from GitHub.")
 		else
 			logToPlugin(
-				"[Warning] [ISpooferMotion] Failed to parse live API dump from GitHub; using bundled data."
+				"[Warning] [PM SPOOFER] Failed to parse live API dump from GitHub; using bundled data."
 			)
 		end
 	else
 		logToPlugin(
-			"[Warning] [ISpooferMotion] Could not fetch live API dump from GitHub; using bundled data."
+			"[Warning] [PM SPOOFER] Could not fetch live API dump from GitHub; using bundled data."
 		)
 	end
 
@@ -234,7 +234,7 @@ local function queuePatchBatch(patches: any)
 	table.insert(deferredPatchBatches, patches)
 	logToPlugin(
 		string.format(
-			"[ISpooferMotion] Deferred %d replacement(s) until the current operation finishes",
+			"[PM SPOOFER] Deferred %d replacement(s) until the current operation finishes",
 			#patches
 		)
 	)
@@ -248,9 +248,7 @@ local function startPatchBatch(patches: any)
 end
 
 local function markConnectionLost(baseUrl: string, reason: string)
-	logToPlugin(
-		"[Warning] [ISpooferMotion] Lost connection to " .. baseUrl .. " (" .. reason .. ")"
-	)
+	logToPlugin("[Warning] [PM SPOOFER] Lost connection to " .. baseUrl .. " (" .. reason .. ")")
 	setConnectionStatus(false)
 	setPluginGuiStatus("Lost connection; reconnecting...")
 	BASE_URL = nil
@@ -292,7 +290,7 @@ function startPolling(): ()
 				local connected, changed, reason = discoverServer()
 				lastDiscovery = os.clock()
 				if connected and changed and BASE_URL then
-					logToPlugin("[ISpooferMotion] Connected to " .. BASE_URL)
+					logToPlugin("[PM SPOOFER] Connected to " .. BASE_URL)
 					setConnectionStatus(true)
 					setPluginGuiStatus("Waiting for scan or replacements...")
 					task.spawn(fetchApiDumpProperties)
@@ -308,7 +306,7 @@ function startPolling(): ()
 					if reason ~= lastReason then
 						lastReason = reason
 						logToPlugin(
-							"[Warning] [ISpooferMotion] "
+							"[Warning] [PM SPOOFER] "
 								.. (reason or "Desktop App not found; reconnecting...")
 						)
 					end
@@ -380,7 +378,7 @@ function startPolling(): ()
 									end
 								end
 								logToPlugin(
-									"[ISpooferMotion] Scan queued: waiting for the previous scan or replacement to stop. It will start automatically."
+									"[PM SPOOFER] Scan queued: waiting for the previous scan or replacement to stop. It will start automatically."
 								)
 							else
 								startRequestedScan(decoded)

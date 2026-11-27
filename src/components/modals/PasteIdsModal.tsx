@@ -83,7 +83,7 @@ export default function PasteIdsModal({
         import('@tauri-apps/plugin-notification')
           .then(({ sendNotification }) => {
             sendNotification({
-              title: 'ISpooferMotion',
+              title: 'PM SPOOFER',
               body: `Dispatched ${replacePairCount} manual replacement(s) to Studio.`,
             });
           })
@@ -93,7 +93,7 @@ export default function PasteIdsModal({
       } catch (e: unknown) {
         logIsm(
           'error',
-          `Could not send replacements to Studio: ${e instanceof Error ? e.message : String(e)}. Make sure Roblox Studio is open and the ISpooferMotion plugin is running.`,
+          `Could not send replacements to Studio: ${e instanceof Error ? e.message : String(e)}. Make sure Roblox Studio is open and the PM SPOOFER plugin is running.`,
           true,
         );
       } finally {

@@ -54,7 +54,10 @@ function expandPluginIncludes(source, fromFile, stack = []) {
 async function buildPlugin() {
   try {
     const entryPath = join(pluginRoot, 'plugin.luau');
-    const rawLuaSource = expandPluginIncludes(readFileSync(entryPath, 'utf8'), entryPath);
+    const rawLuaSource = expandPluginIncludes(readFileSync(entryPath, 'utf8'), entryPath).replace(
+      '__PM_ICON_BASE64__',
+      readFileSync(join(pluginRoot, 'pm-icon.rgba')).toString('base64'),
+    );
 
     const safeSource = rawLuaSource.replace(/]]>/g, ']]]]><![CDATA[>');
 
@@ -64,7 +67,7 @@ async function buildPlugin() {
 	<External>nil</External>
 	<Item class="Script" referent="${referent}">
 		<Properties>
-			<string name="Name">ISpooferMotion</string>
+			<string name="Name">PM SPOOFER v${packageJson.version}</string>
 			<ProtectedString name="Source"><![CDATA[${safeSource}]]></ProtectedString>
 			<bool name="Disabled">false</bool>
 		</Properties>
@@ -81,15 +84,16 @@ async function buildPlugin() {
     const generatedSourcePath = join(pluginBuildDir, 'ISpooferMotion.generated.luau');
     writeFileSync(generatedSourcePath, rawLuaSource, 'utf8');
 
-    const outPath = join(outDir, 'ISpooferMotion.rbxmx');
+    const outPath = join(outDir, 'PM-SPOOFER.rbxmx');
     writeFileSync(outPath, rbxmx, 'utf8');
+    writeFileSync(join(outDir, `PM-SPOOFER-Plugin-v${packageJson.version}.rbxmx`), rbxmx);
 
     const kb = (rawLuaSource.length / 1024).toFixed(1);
 
     console.log(`    Plugin built successfully`);
     console.log(`    Source      : plugin/plugin.luau + includes  (${kb} KB)`);
     console.log(`    Lint source : plugin/.generated/ISpooferMotion.generated.luau`);
-    console.log(`    Output      : dist-plugin/ISpooferMotion.rbxmx`);
+    console.log(`    Output      : dist-plugin/PM-SPOOFER-Plugin-v${packageJson.version}.rbxmx`);
     console.log(``);
   } catch (err) {
     console.error('Failed to build plugin:', err);

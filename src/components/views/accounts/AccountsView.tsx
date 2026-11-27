@@ -231,7 +231,7 @@ export default function AccountsView() {
         permissionGranted = permission === 'granted';
       }
       if (permissionGranted) {
-        sendNotification({ title: 'ISpooferMotion', body: msg });
+        sendNotification({ title: 'PM SPOOFER', body: msg });
       } else {
         logIsm('success', msg, true);
       }

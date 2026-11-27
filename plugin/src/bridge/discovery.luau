@@ -136,13 +136,13 @@ local function discoverServer(): (boolean, boolean, string?)
 	local reason
 	if statsRef.wrongApp > 0 then
 		reason = string.format(
-			"Found a server on ports %d-%d but it isn't ISpooferMotion. Close other apps using these ports.",
+			"Found a server on ports %d-%d but it isn't PM SPOOFER. Close other apps using these ports.",
 			portStart,
 			portEnd
 		)
 	else
 		reason = string.format(
-			"Cannot reach the desktop app on ports %d-%d. Keep IspooferMotion pm open and allow this local plugin to access localhost / 127.0.0.1 when Studio prompts.",
+			"Cannot reach the desktop app on ports %d-%d. Keep PM SPOOFER open and allow this local plugin to access localhost / 127.0.0.1 when Studio prompts.",
 			portStart,
 			portEnd
 		)

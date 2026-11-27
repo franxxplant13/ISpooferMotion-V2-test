@@ -223,6 +223,8 @@ export default function AssetExplorer({
   const [lockOpen, setLockOpen] = useState(false);
   const [placeIdInput, setPlaceIdInput] = useState('');
   const [confirmClearPins, setConfirmClearPins] = useState(false);
+  const [packOpen, setPackOpen] = useState(false);
+  const [packName, setPackName] = useState('');
   const [spoofModeOpen, setSpoofModeOpen] = useState(false);
   const [scanTypes, setScanTypes] = useState<Set<string>>(
     new Set(['sounds', 'animations', 'images', 'meshes', 'scripts']),
@@ -832,8 +834,8 @@ export default function AssetExplorer({
         {displayedInstances.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-6 p-8 overflow-y-auto">
             <img
-              src="/ism_logo_theme_swap.svg"
-              alt="ISpooferMotion"
+              src="/pm-spoofer.png"
+              alt="PM SPOOFER"
               className="w-28 h-28 object-contain select-none drop-shadow-md"
               draggable={false}
             />
@@ -1975,6 +1977,17 @@ export default function AssetExplorer({
                       <span className="flex-1">Download Only</span>
                       {config.spoofing.downloadOnly && <Check size={12} className="text-primary" />}
                     </button>
+                    <button
+                      type="button"
+                      disabled={busy || !selectedAssetIds.size}
+                      className="w-full px-2 py-1 text-left text-xs disabled:opacity-50"
+                      onClick={() => {
+                        setSpoofModeOpen(false);
+                        setPackOpen(true);
+                      }}
+                    >
+                      Download as one model (.rbxm)
+                    </button>
 
                     <div className="my-0.5 border-t border-border-subtle" />
 
@@ -2023,6 +2036,43 @@ export default function AssetExplorer({
         )}
       </div>
 
+      <Dialog open={packOpen} onOpenChange={setPackOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Download animation pack</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm">
+            Save the checked animation references together in one Roblox model.
+          </p>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!packName.trim() || !selectedAssetIds.size || busy) return;
+              document.dispatchEvent(
+                new CustomEvent('ism-run-spoofer', {
+                  detail: { assetIds: [...selectedAssetIds], packName: packName.trim() },
+                }),
+              );
+              setPackOpen(false);
+            }}
+          >
+            <label htmlFor="pack-name">Pack name</label>
+            <Input
+              id="pack-name"
+              maxLength={100}
+              value={packName}
+              onChange={(e) => setPackName(e.target.value)}
+              placeholder="Movement Pack"
+              autoFocus
+            />
+            <DialogFooter>
+              <Button type="submit" disabled={!packName.trim() || busy}>
+                Download pack
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
       <Dialog open={confirmClearPins} onOpenChange={setConfirmClearPins}>
         <DialogContent className="max-w-sm">
           <DialogHeader>

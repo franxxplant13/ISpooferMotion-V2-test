@@ -96,3 +96,5 @@ desktop.ini
 # Some other junk
 *.log
 /.agents
+
+/src-tauri/pm-icons/
